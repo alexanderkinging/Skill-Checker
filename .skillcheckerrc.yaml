@@ -1,0 +1,17 @@
+# Skill Checker Configuration
+# Place this file in your project root or home directory
+
+# Approval policy: strict / balanced / permissive
+# strict:     CRITICAL→deny, HIGH→deny, MEDIUM→ask
+# balanced:   CRITICAL→deny, HIGH→ask, MEDIUM→report
+# permissive: CRITICAL→ask, HIGH→report, MEDIUM→report
+policy: balanced
+
+# Override severity for specific rules
+# overrides:
+#   CODE-006: LOW        # My skills need env var access
+#   SUPPLY-002: LOW      # I trust npx -y in my workflow
+
+# Ignore specific rules entirely
+# ignore:
+#   - CONT-006           # Known false positive for my skills
