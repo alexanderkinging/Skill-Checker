@@ -16,6 +16,7 @@
 
 import type { CheckModule, CheckResult, ParsedSkill } from '../types.js';
 import { shannonEntropy, isBase64Like, isHexEncoded } from '../utils/entropy.js';
+import { isInDocumentationContext } from '../utils/context.js';
 
 /** Dangerous eval/exec patterns */
 const EVAL_PATTERNS = [
@@ -33,8 +34,16 @@ const SHELL_EXEC_PATTERNS = [
   /\bspawnSync\b/,
   /\bos\.system\s*\(/,
   /\bsubprocess\.(run|call|Popen)\s*\(/,
-  /\bsystem\s*\(/,
+  /(?<!\bplatform\.)\bsystem\s*\(/, // exclude platform.system()
   /`[^`]*\$\([^)]+\)[^`]*`/, // backtick with command substitution
+];
+
+/**
+ * Patterns that look like shell execution but are actually
+ * read-only system info queries (not dangerous).
+ */
+const SHELL_EXEC_FALSE_POSITIVES = [
+  /\bplatform\.system\s*\(\s*\)/,  // Python: just reads OS name
 ];
 
 /** Destructive file operations */
@@ -124,13 +133,16 @@ export const codeSafetyChecks: CheckModule = {
         });
 
         // CODE-002: shell execution
-        checkPatterns(results, line, SHELL_EXEC_PATTERNS, {
-          id: 'CODE-002',
-          severity: 'CRITICAL',
-          title: 'Shell/subprocess execution',
-          loc,
-          lineNum,
-        });
+        // Skip read-only system info queries (e.g. platform.system())
+        if (!SHELL_EXEC_FALSE_POSITIVES.some((p) => p.test(line))) {
+          checkPatterns(results, line, SHELL_EXEC_PATTERNS, {
+            id: 'CODE-002',
+            severity: 'CRITICAL',
+            title: 'Shell/subprocess execution',
+            loc,
+            lineNum,
+          });
+        }
 
         // CODE-003: destructive file operations
         checkPatterns(results, line, DESTRUCTIVE_PATTERNS, {
@@ -178,13 +190,20 @@ export const codeSafetyChecks: CheckModule = {
         });
 
         // CODE-012: permission escalation
-        checkPatterns(results, line, PERMISSION_PATTERNS, {
-          id: 'CODE-012',
-          severity: 'HIGH',
-          title: 'Permission escalation',
-          loc,
-          lineNum,
-        });
+        // Skip when in documentation context (installation guides)
+        {
+          const srcLines = text.split('\n');
+          const isDoc = isInDocumentationContext(srcLines, i);
+          if (!isDoc) {
+            checkPatterns(results, line, PERMISSION_PATTERNS, {
+              id: 'CODE-012',
+              severity: 'HIGH',
+              title: 'Permission escalation',
+              loc,
+              lineNum,
+            });
+          }
+        }
       }
 
       // Multi-line checks

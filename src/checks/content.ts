@@ -15,17 +15,27 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import type { CheckModule, CheckResult, ParsedSkill } from '../types.js';
+import { isInCodeBlock } from '../utils/context.js';
 
-const PLACEHOLDER_PATTERNS = [
-  /\bTODO\b/i,
-  /\bFIXME\b/i,
-  /\bHACK\b/i,
+/** Patterns that are always placeholder indicators regardless of context */
+const STRICT_PLACEHOLDER_PATTERNS = [
+  /\bTODO\b/,
+  /\bFIXME\b/,
+  /\bHACK\b/,
   /\bXXX\b/,
-  /\bplaceholder\b/i,
   /\binsert\s+here\b/i,
   /\bfill\s+in\b/i,
   /\bTBD\b/,
   /\bcoming\s+soon\b/i,
+];
+
+/**
+ * Patterns that are placeholder ONLY in prose context.
+ * In code/technical context (CSS classes, API names, PPT concepts),
+ * these are legitimate terms, not indicators of incomplete content.
+ */
+const CONTEXT_SENSITIVE_PLACEHOLDER_PATTERNS = [
+  /\bplaceholder\b/i,
 ];
 
 const LOREM_PATTERNS = [
@@ -59,19 +69,53 @@ export const contentChecks: CheckModule = {
     // CONT-001: Placeholder content
     for (let i = 0; i < skill.bodyLines.length; i++) {
       const line = skill.bodyLines[i];
-      for (const pattern of PLACEHOLDER_PATTERNS) {
+      let matched = false;
+
+      // Strict patterns: always flag
+      for (const pattern of STRICT_PLACEHOLDER_PATTERNS) {
         if (pattern.test(line)) {
-          results.push({
-            id: 'CONT-001',
-            category: 'CONT',
-            severity: 'HIGH',
-            title: 'Placeholder content detected',
-            message: `Line ${skill.bodyStartLine + i}: Contains placeholder text.`,
-            line: skill.bodyStartLine + i,
-            snippet: line.trim().slice(0, 120),
-          });
+          matched = true;
           break;
         }
+      }
+
+      // Context-sensitive patterns: only flag in prose context
+      // Skip if line is in code block, inline code, or looks like technical reference
+      if (!matched) {
+        const inCodeBlk = isInCodeBlock(skill.bodyLines, i);
+        const hasInlineCode = /`[^`]*placeholder[^`]*`/i.test(line);
+        const isTechnicalRef =
+          // CSS/HTML context
+          /class\s*=\s*["'].*placeholder/i.test(line) ||
+          // Compound technical terms
+          /placeholder[_-]?(type|text|image|content|area|location|id|index|name|shape)/i.test(line) ||
+          // PPT/slide layout context: placeholder alongside slide/layout terms
+          /\bplaceholder\b.*\b(TITLE|SUBTITLE|BODY|OBJECT|SLIDE|layout|slide|shape|pptx|presentation)/i.test(line) ||
+          /\b(TITLE|SUBTITLE|BODY|OBJECT|SLIDE|layout|slide|shape|pptx|presentation)\b.*\bplaceholder\b/i.test(line) ||
+          // API/code context: placeholder as a noun in technical documentation
+          /\bplaceholder\s+(areas?|locations?|counts?|slots?|elements?|fields?)\b/i.test(line) ||
+          /\b(replace|replacing|replacement)\b.*\bplaceholder\b/i.test(line);
+
+        if (!inCodeBlk && !hasInlineCode && !isTechnicalRef) {
+          for (const pattern of CONTEXT_SENSITIVE_PLACEHOLDER_PATTERNS) {
+            if (pattern.test(line)) {
+              matched = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (matched) {
+        results.push({
+          id: 'CONT-001',
+          category: 'CONT',
+          severity: 'HIGH',
+          title: 'Placeholder content detected',
+          message: `Line ${skill.bodyStartLine + i}: Contains placeholder text.`,
+          line: skill.bodyStartLine + i,
+          snippet: line.trim().slice(0, 120),
+        });
       }
     }
 

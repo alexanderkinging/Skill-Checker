@@ -15,6 +15,11 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import type { CheckModule, CheckResult, ParsedSkill } from '../types.js';
+import {
+  isNamespaceOrSchemaURI,
+  isInNetworkRequestContext,
+  isInDocumentationContext,
+} from '../utils/context.js';
 
 /** Known suspicious/malicious domains (sample list) */
 const SUSPICIOUS_DOMAINS = [
@@ -81,16 +86,25 @@ export const supplyChainChecks: CheckModule = {
       }
 
       // SUPPLY-003: npm/pip install unknown packages
+      // Skip when in documentation context (installation guides / prerequisites)
       if (NPM_INSTALL_PATTERN.test(line) || PIP_INSTALL_PATTERN.test(line)) {
-        results.push({
-          id: 'SUPPLY-003',
-          category: 'SUPPLY',
-          severity: 'HIGH',
-          title: 'Package installation command',
-          message: `${source}:${lineNum}: Installs packages. Verify package names are legitimate.`,
-          line: lineNum,
-          snippet: line.trim().slice(0, 120),
-        });
+        const allLines = getAllLines(skill);
+        const globalIdx = findGlobalLineIndex(allLines, source, lineNum);
+        const isDoc = globalIdx >= 0 && isInDocumentationContext(
+          allLines.map((l) => l.line),
+          globalIdx
+        );
+        if (!isDoc) {
+          results.push({
+            id: 'SUPPLY-003',
+            category: 'SUPPLY',
+            severity: 'HIGH',
+            title: 'Package installation command',
+            message: `${source}:${lineNum}: Installs packages. Verify package names are legitimate.`,
+            line: lineNum,
+            snippet: line.trim().slice(0, 120),
+          });
+        }
       }
 
       // SUPPLY-006: git clone non-standard source
@@ -110,16 +124,22 @@ export const supplyChainChecks: CheckModule = {
       const urls = line.match(URL_PATTERN) || [];
       for (const url of urls) {
         // SUPPLY-004: Non-HTTPS URL
+        // Skip namespace/schema URIs (identifiers, not network endpoints)
+        // and URLs not in actual network request context
         if (url.startsWith('http://')) {
-          results.push({
-            id: 'SUPPLY-004',
-            category: 'SUPPLY',
-            severity: 'HIGH',
-            title: 'Non-HTTPS URL',
-            message: `${source}:${lineNum}: Uses insecure HTTP: ${url}`,
-            line: lineNum,
-            snippet: url,
-          });
+          if (!isNamespaceOrSchemaURI(url, line)) {
+            // Still flag if in network request context, or as lower severity info
+            const isNetworkCtx = isInNetworkRequestContext(line);
+            results.push({
+              id: 'SUPPLY-004',
+              category: 'SUPPLY',
+              severity: isNetworkCtx ? 'HIGH' : 'MEDIUM',
+              title: 'Non-HTTPS URL',
+              message: `${source}:${lineNum}: Uses insecure HTTP: ${url}`,
+              line: lineNum,
+              snippet: url,
+            });
+          }
         }
 
         // SUPPLY-005: IP address instead of domain
@@ -160,10 +180,10 @@ export const supplyChainChecks: CheckModule = {
   },
 };
 
-function getAllText(
-  skill: ParsedSkill
-): Array<{ line: string; lineNum: number; source: string }> {
-  const result: Array<{ line: string; lineNum: number; source: string }> = [];
+type TextLine = { line: string; lineNum: number; source: string };
+
+function getAllText(skill: ParsedSkill): TextLine[] {
+  const result: TextLine[] = [];
 
   for (let i = 0; i < skill.bodyLines.length; i++) {
     result.push({
@@ -183,4 +203,20 @@ function getAllText(
   }
 
   return result;
+}
+
+/** Get all lines from SKILL.md body (for context lookback) */
+function getAllLines(skill: ParsedSkill): TextLine[] {
+  return getAllText(skill);
+}
+
+/** Find the global index of a source:lineNum in the flat list */
+function findGlobalLineIndex(
+  allLines: TextLine[],
+  source: string,
+  lineNum: number
+): number {
+  return allLines.findIndex(
+    (l) => l.source === source && l.lineNum === lineNum
+  );
 }
