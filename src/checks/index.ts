@@ -21,6 +21,7 @@ import { injectionChecks } from './injection.js';
 import { codeSafetyChecks } from './code-safety.js';
 import { supplyChainChecks } from './supply-chain.js';
 import { resourceChecks } from './resource.js';
+import { iocChecks } from './ioc.js';
 
 const ALL_MODULES: CheckModule[] = [
   structuralChecks,
@@ -29,6 +30,7 @@ const ALL_MODULES: CheckModule[] = [
   codeSafetyChecks,
   supplyChainChecks,
   resourceChecks,
+  iocChecks,
 ];
 
 /**

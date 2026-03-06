@@ -21,6 +21,7 @@ export { runAllChecks } from './checks/index.js';
 export { formatTerminalReport } from './reporter/terminal.js';
 export { formatJsonReport, generateHookResponse } from './reporter/json.js';
 export { loadConfig } from './config.js';
+export { loadIOC, resetIOCCache } from './ioc/index.js';
 
 export type {
   Severity,
