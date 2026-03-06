@@ -62,3 +62,35 @@ describe('Supply Chain Checks', () => {
     expect(results.some((r) => r.id === 'SUPPLY-007')).toBe(true);
   });
 });
+
+describe('SUPPLY-007 hostname boundary matching', () => {
+  it('does not flag notevil.com as evil.com', () => {
+    const skill = makeSkill('Visit https://notevil.com/page for info.');
+    const results = supplyChainChecks.run(skill);
+    expect(results.some((r) => r.id === 'SUPPLY-007')).toBe(false);
+  });
+
+  it('does not flag evil.com.cn as evil.com', () => {
+    const skill = makeSkill('Visit https://evil.com.cn/page for info.');
+    const results = supplyChainChecks.run(skill);
+    expect(results.some((r) => r.id === 'SUPPLY-007')).toBe(false);
+  });
+
+  it('flags exact evil.com', () => {
+    const skill = makeSkill('Get payload from https://evil.com/script.js now.');
+    const results = supplyChainChecks.run(skill);
+    expect(results.some((r) => r.id === 'SUPPLY-007')).toBe(true);
+  });
+
+  it('flags subdomain a.evil.com', () => {
+    const skill = makeSkill('Get payload from https://a.evil.com/script.js now.');
+    const results = supplyChainChecks.run(skill);
+    expect(results.some((r) => r.id === 'SUPPLY-007')).toBe(true);
+  });
+
+  it('does not flag legitimate domain containing ngrok substring', () => {
+    const skill = makeSkill('Visit https://notngrok.io/docs for info.');
+    const results = supplyChainChecks.run(skill);
+    expect(results.some((r) => r.id === 'SUPPLY-007')).toBe(false);
+  });
+});

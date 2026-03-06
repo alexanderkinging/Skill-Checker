@@ -14,12 +14,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+import { createRequire } from 'node:module';
 import { Command } from 'commander';
 import { scanSkillDirectory } from './scanner.js';
 import { formatTerminalReport } from './reporter/terminal.js';
 import { formatJsonReport, generateHookResponse } from './reporter/json.js';
 import { loadConfig } from './config.js';
 import type { PolicyLevel } from './types.js';
+
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json') as { version: string };
 
 const program = new Command();
 
@@ -28,7 +32,7 @@ program
   .description(
     'Security checker for Claude Code skills - detect injection, malicious code, and supply chain risks'
   )
-  .version('0.1.0');
+  .version(pkg.version);
 
 program
   .command('scan')

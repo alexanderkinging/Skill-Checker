@@ -53,6 +53,37 @@ export interface CheckResult {
   message: string;
   line?: number;         // line number in SKILL.md
   snippet?: string;      // relevant code snippet
+  reducedFrom?: Severity; // original severity before context-aware reduction
+  occurrences?: number;   // count after per-file deduplication
+}
+
+// ===== Severity Reduction =====
+
+const REDUCE_MAP: Record<Severity, Severity> = {
+  CRITICAL: 'HIGH',
+  HIGH: 'MEDIUM',
+  MEDIUM: 'LOW',
+  LOW: 'LOW',
+};
+
+/**
+ * Reduce severity by one level with audit trail.
+ * Safety floor: a CRITICAL-origin finding never drops below MEDIUM.
+ */
+export function reduceSeverity(
+  original: Severity,
+  reason: string
+): { severity: Severity; reducedFrom: Severity; annotation: string } {
+  let reduced = REDUCE_MAP[original];
+  // Safety floor: CRITICAL source never goes below MEDIUM
+  if (original === 'CRITICAL' && reduced === 'LOW') {
+    reduced = 'MEDIUM';
+  }
+  return {
+    severity: reduced,
+    reducedFrom: original,
+    annotation: `[reduced: ${reason}]`,
+  };
 }
 
 // ===== Parsed Skill =====
@@ -82,6 +113,8 @@ export interface ParsedSkill {
   bodyStartLine: number;
   /** Other files in the skill directory */
   files: SkillFile[];
+  /** Warnings about skipped directories/files during parsing */
+  warnings: string[];
 }
 
 export interface SkillFile {

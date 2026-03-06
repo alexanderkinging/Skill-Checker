@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-import type { CheckModule, CheckResult, ParsedSkill } from '../types.js';
+import type { CheckModule, CheckResult, ParsedSkill, Severity } from '../types.js';
+import { reduceSeverity } from '../types.js';
 import { shannonEntropy, isBase64Like, isHexEncoded } from '../utils/entropy.js';
-import { isInDocumentationContext } from '../utils/context.js';
+import { isInDocumentationContext, isInCodeBlock } from '../utils/context.js';
 
 /** Dangerous eval/exec patterns */
 const EVAL_PATTERNS = [
@@ -122,8 +123,9 @@ export const codeSafetyChecks: CheckModule = {
         const line = lines[i];
         const lineNum = i + 1;
         const loc = `${source}:${lineNum}`;
+        const cbCtx = { lines, index: i };
 
-        // CODE-001: eval/exec
+        // CODE-001: eval/exec — always CRITICAL, no code block reduction
         checkPatterns(results, line, EVAL_PATTERNS, {
           id: 'CODE-001',
           severity: 'CRITICAL',
@@ -132,8 +134,7 @@ export const codeSafetyChecks: CheckModule = {
           lineNum,
         });
 
-        // CODE-002: shell execution
-        // Skip read-only system info queries (e.g. platform.system())
+        // CODE-002: shell execution — always CRITICAL, no code block reduction
         if (!SHELL_EXEC_FALSE_POSITIVES.some((p) => p.test(line))) {
           checkPatterns(results, line, SHELL_EXEC_PATTERNS, {
             id: 'CODE-002',
@@ -144,25 +145,27 @@ export const codeSafetyChecks: CheckModule = {
           });
         }
 
-        // CODE-003: destructive file operations
+        // CODE-003: destructive file operations — code block reduction
         checkPatterns(results, line, DESTRUCTIVE_PATTERNS, {
           id: 'CODE-003',
           severity: 'CRITICAL',
           title: 'Destructive file operation',
           loc,
           lineNum,
+          codeBlockCtx: cbCtx,
         });
 
-        // CODE-004: hardcoded external URLs
+        // CODE-004: hardcoded external URLs — code block reduction
         checkPatterns(results, line, NETWORK_PATTERNS, {
           id: 'CODE-004',
           severity: 'HIGH',
           title: 'Hardcoded external URL/network request',
           loc,
           lineNum,
+          codeBlockCtx: cbCtx,
         });
 
-        // CODE-005: file write outside expected dir
+        // CODE-005: file write outside expected dir — no code block reduction
         checkPatterns(results, line, FILE_WRITE_PATTERNS, {
           id: 'CODE-005',
           severity: 'HIGH',
@@ -171,16 +174,17 @@ export const codeSafetyChecks: CheckModule = {
           lineNum,
         });
 
-        // CODE-006: env var access
+        // CODE-006: env var access — code block reduction
         checkPatterns(results, line, ENV_ACCESS_PATTERNS, {
           id: 'CODE-006',
           severity: 'MEDIUM',
           title: 'Environment variable access',
           loc,
           lineNum,
+          codeBlockCtx: cbCtx,
         });
 
-        // CODE-010: dynamic code generation
+        // CODE-010: dynamic code generation — no code block reduction
         checkPatterns(results, line, DYNAMIC_CODE_PATTERNS, {
           id: 'CODE-010',
           severity: 'HIGH',
@@ -192,8 +196,7 @@ export const codeSafetyChecks: CheckModule = {
         // CODE-012: permission escalation
         // Skip when in documentation context (installation guides)
         {
-          const srcLines = text.split('\n');
-          const isDoc = isInDocumentationContext(srcLines, i);
+          const isDoc = isInDocumentationContext(lines, i);
           if (!isDoc) {
             checkPatterns(results, line, PERMISSION_PATTERNS, {
               id: 'CODE-012',
@@ -217,10 +220,11 @@ export const codeSafetyChecks: CheckModule = {
 
 interface PatternCheckOpts {
   id: string;
-  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  severity: Severity;
   title: string;
   loc: string;
   lineNum: number;
+  codeBlockCtx?: { lines: string[]; index: number };
 }
 
 function checkPatterns(
@@ -231,14 +235,24 @@ function checkPatterns(
 ): void {
   for (const pattern of patterns) {
     if (pattern.test(line)) {
+      let severity = opts.severity;
+      let reducedFrom: Severity | undefined;
+      let msgSuffix = '';
+      if (opts.codeBlockCtx && isInCodeBlock(opts.codeBlockCtx.lines, opts.codeBlockCtx.index)) {
+        const r = reduceSeverity(severity, 'in code block');
+        severity = r.severity;
+        reducedFrom = r.reducedFrom;
+        msgSuffix = ` ${r.annotation}`;
+      }
       results.push({
         id: opts.id,
         category: 'CODE',
-        severity: opts.severity,
+        severity,
         title: opts.title,
-        message: `At ${opts.loc}: ${line.trim().slice(0, 120)}`,
+        message: `At ${opts.loc}: ${line.trim().slice(0, 120)}${msgSuffix}`,
         line: opts.lineNum,
         snippet: line.trim().slice(0, 120),
+        reducedFrom,
       });
       return; // one match per line per rule
     }

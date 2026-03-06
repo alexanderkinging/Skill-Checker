@@ -124,6 +124,22 @@ export function isInDocumentationContext(
   return false;
 }
 
+/**
+ * Check if a file path is a license/legal file (content is not executable instruction).
+ */
+export function isLicenseFile(filePath: string): boolean {
+  const name = filePath.split('/').pop()?.toUpperCase() ?? '';
+  const base = name.replace(/\.[^.]+$/, ''); // strip extension
+  return /^(LICENSE|LICENCE|COPYING|NOTICE|AUTHORS|PATENTS)$/.test(base);
+}
+
+/**
+ * Check if a URL points to localhost / loopback (no external attack surface).
+ */
+export function isLocalhostURL(url: string): boolean {
+  return /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])/i.test(url);
+}
+
 function parseURLPath(
   url: string
 ): { path: string; hasQuery: boolean; hasFileExtension: boolean } | null {

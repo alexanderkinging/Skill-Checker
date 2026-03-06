@@ -14,11 +14,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-import type { CheckModule, CheckResult, ParsedSkill } from '../types.js';
+import type { CheckModule, CheckResult, ParsedSkill, Severity } from '../types.js';
+import { reduceSeverity } from '../types.js';
 import {
   isNamespaceOrSchemaURI,
   isInNetworkRequestContext,
   isInDocumentationContext,
+  isInCodeBlock,
+  isLicenseFile,
+  isLocalhostURL,
 } from '../utils/context.js';
 import { loadIOC } from '../ioc/index.js';
 
@@ -38,6 +42,27 @@ const URL_PATTERN = /https?:\/\/[^\s"'`<>)\]]+/g;
 /** IP address pattern (not localhost) */
 const IP_URL_PATTERN = /https?:\/\/(?:\d{1,3}\.){3}\d{1,3}/;
 
+/**
+ * Extract hostname from a URL string without using the URL constructor
+ * (which may throw on malformed URLs found in skill content).
+ */
+function extractHostname(url: string): string {
+  const afterProto = url.replace(/^https?:\/\//, '');
+  const hostPort = afterProto.split('/')[0].split('?')[0].split('#')[0];
+  const host = hostPort.split(':')[0];
+  return host.toLowerCase();
+}
+
+/**
+ * Check if a hostname matches a domain exactly or is a subdomain of it.
+ * e.g. domain="evil.com" matches "evil.com" and "a.evil.com"
+ * but NOT "notevil.com" or "evil.com.cn"
+ */
+function hostnameMatchesDomain(hostname: string, domain: string): boolean {
+  const d = domain.toLowerCase();
+  return hostname === d || hostname.endsWith('.' + d);
+}
+
 export const supplyChainChecks: CheckModule = {
   name: 'Supply Chain',
   category: 'SUPPLY',
@@ -55,14 +80,26 @@ export const supplyChainChecks: CheckModule = {
 
       // SUPPLY-001: Unknown MCP server references
       if (MCP_SERVER_PATTERN.test(line)) {
+        let severity: Severity = 'HIGH';
+        let reducedFrom: Severity | undefined;
+        let msgSuffix = '';
+        const srcLines = getLinesForSource(skill, source);
+        const localIdx = getLocalIndex(source, lineNum, skill.bodyStartLine);
+        if (localIdx >= 0 && isInCodeBlock(srcLines, localIdx)) {
+          const r = reduceSeverity(severity, 'in code block');
+          severity = r.severity;
+          reducedFrom = r.reducedFrom;
+          msgSuffix = ` ${r.annotation}`;
+        }
         results.push({
           id: 'SUPPLY-001',
           category: 'SUPPLY',
-          severity: 'HIGH',
+          severity,
           title: 'MCP server reference',
-          message: `${source}:${lineNum}: References an MCP server. Verify it is from a trusted source.`,
+          message: `${source}:${lineNum}: References an MCP server. Verify it is from a trusted source.${msgSuffix}`,
           line: lineNum,
           snippet: line.trim().slice(0, 120),
+          reducedFrom,
         });
       }
 
@@ -89,14 +126,26 @@ export const supplyChainChecks: CheckModule = {
           globalIdx
         );
         if (!isDoc) {
+          let severity: Severity = 'HIGH';
+          let reducedFrom: Severity | undefined;
+          let msgSuffix = '';
+          const srcLines = getLinesForSource(skill, source);
+          const localIdx = getLocalIndex(source, lineNum, skill.bodyStartLine);
+          if (localIdx >= 0 && isInCodeBlock(srcLines, localIdx)) {
+            const r = reduceSeverity(severity, 'in code block');
+            severity = r.severity;
+            reducedFrom = r.reducedFrom;
+            msgSuffix = ` ${r.annotation}`;
+          }
           results.push({
             id: 'SUPPLY-003',
             category: 'SUPPLY',
-            severity: 'HIGH',
+            severity,
             title: 'Package installation command',
-            message: `${source}:${lineNum}: Installs packages. Verify package names are legitimate.`,
+            message: `${source}:${lineNum}: Installs packages. Verify package names are legitimate.${msgSuffix}`,
             line: lineNum,
             snippet: line.trim().slice(0, 120),
+            reducedFrom,
           });
         }
       }
@@ -118,20 +167,32 @@ export const supplyChainChecks: CheckModule = {
       const urls = line.match(URL_PATTERN) || [];
       for (const url of urls) {
         // SUPPLY-004: Non-HTTPS URL
-        // Skip namespace/schema URIs (identifiers, not network endpoints)
-        // and URLs not in actual network request context
+        // Skip namespace/schema URIs, license files, and localhost
         if (url.startsWith('http://')) {
+          if (isLicenseFile(source)) continue; // legal text, not instruction
+          if (isLocalhostURL(url)) continue;   // no external attack surface
           if (!isNamespaceOrSchemaURI(url, line)) {
-            // Still flag if in network request context, or as lower severity info
             const isNetworkCtx = isInNetworkRequestContext(line);
+            let severity: Severity = isNetworkCtx ? 'HIGH' : 'MEDIUM';
+            let reducedFrom: Severity | undefined;
+            let msgSuffix = '';
+            const srcLines = getLinesForSource(skill, source);
+            const localIdx = getLocalIndex(source, lineNum, skill.bodyStartLine);
+            if (localIdx >= 0 && isInCodeBlock(srcLines, localIdx)) {
+              const r = reduceSeverity(severity, 'in code block');
+              severity = r.severity;
+              reducedFrom = r.reducedFrom;
+              msgSuffix = ` ${r.annotation}`;
+            }
             results.push({
               id: 'SUPPLY-004',
               category: 'SUPPLY',
-              severity: isNetworkCtx ? 'HIGH' : 'MEDIUM',
+              severity,
               title: 'Non-HTTPS URL',
-              message: `${source}:${lineNum}: Uses insecure HTTP: ${url}`,
+              message: `${source}:${lineNum}: Uses insecure HTTP: ${url}${msgSuffix}`,
               line: lineNum,
               snippet: url,
+              reducedFrom,
             });
           }
         }
@@ -153,8 +214,9 @@ export const supplyChainChecks: CheckModule = {
         }
 
         // SUPPLY-007: Known suspicious domains (from IOC database)
+        const hostname = extractHostname(url);
         for (const domain of suspiciousDomains) {
-          if (url.includes(domain)) {
+          if (hostnameMatchesDomain(hostname, domain)) {
             results.push({
               id: 'SUPPLY-007',
               category: 'SUPPLY',
@@ -175,6 +237,19 @@ export const supplyChainChecks: CheckModule = {
 };
 
 type TextLine = { line: string; lineNum: number; source: string };
+
+/** Get all lines for a specific source file as a string array (for code block tracking). */
+function getLinesForSource(skill: ParsedSkill, source: string): string[] {
+  if (source === 'SKILL.md') return skill.bodyLines;
+  const file = skill.files.find((f) => f.path === source);
+  return file?.content?.split('\n') ?? [];
+}
+
+/** Convert source-relative lineNum to zero-based index in the source lines array. */
+function getLocalIndex(source: string, lineNum: number, bodyStartLine: number): number {
+  if (source === 'SKILL.md') return lineNum - bodyStartLine;
+  return lineNum - 1;
+}
 
 function getAllText(skill: ParsedSkill): TextLine[] {
   const result: TextLine[] = [];

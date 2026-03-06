@@ -126,6 +126,17 @@ export const structuralChecks: CheckModule = {
       }
     }
 
+    // STRUCT-008: Skipped or partially scanned paths
+    for (const warning of skill.warnings) {
+      results.push({
+        id: 'STRUCT-008',
+        category: 'STRUCT',
+        severity: 'MEDIUM',
+        title: 'Scan coverage warning',
+        message: warning,
+      });
+    }
+
     return results;
   },
 };

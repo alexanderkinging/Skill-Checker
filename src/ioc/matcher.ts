@@ -15,7 +15,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import { createHash } from 'node:crypto';
-import { readFileSync, statSync } from 'node:fs';
+import { openSync, readSync, closeSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { levenshtein } from '../utils/levenshtein.js';
 import type { IOCDatabase } from './indicators.js';
@@ -23,9 +23,6 @@ import type { ParsedSkill } from '../types.js';
 
 /** SHA-256 of empty content — must never be treated as malicious */
 const EMPTY_FILE_HASH = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
-
-/** Max file size for hash computation (10 MB) */
-const MAX_HASH_FILE_SIZE = 10 * 1024 * 1024;
 
 /** IPv4 pattern — matches standalone IPs in text */
 const IPV4_PATTERN = /\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g;
@@ -49,8 +46,34 @@ function isPrivateIP(ip: string): boolean {
   return false;
 }
 
+/** Chunk size for streaming hash computation (64 KB) */
+const HASH_CHUNK_SIZE = 64 * 1024;
+
+/**
+ * Compute SHA-256 hash of a file using chunked reads to avoid
+ * loading the entire file into memory.
+ */
+function computeFileHash(filePath: string): string {
+  const hash = createHash('sha256');
+  const fd = openSync(filePath, 'r');
+  try {
+    const buf = Buffer.alloc(HASH_CHUNK_SIZE);
+    let bytesRead: number;
+    do {
+      bytesRead = readSync(fd, buf, 0, HASH_CHUNK_SIZE, null);
+      if (bytesRead > 0) {
+        hash.update(buf.subarray(0, bytesRead));
+      }
+    } while (bytesRead > 0);
+  } finally {
+    closeSync(fd);
+  }
+  return hash.digest('hex');
+}
+
 /**
  * SUPPLY-008: Check file hashes against known malicious hashes.
+ * Uses streaming hash computation — no file size limit.
  */
 export function matchMaliciousHashes(
   skill: ParsedSkill,
@@ -64,9 +87,8 @@ export function matchMaliciousHashes(
     const filePath = join(skill.dirPath, file.path);
     try {
       const stat = statSync(filePath);
-      if (stat.size === 0 || stat.size > MAX_HASH_FILE_SIZE) continue;
-      const content = readFileSync(filePath);
-      const hash = createHash('sha256').update(content).digest('hex');
+      if (stat.size === 0) continue;
+      const hash = computeFileHash(filePath);
       if (hash === EMPTY_FILE_HASH) continue;
       if (ioc.malicious_hashes[hash]) {
         matches.push({

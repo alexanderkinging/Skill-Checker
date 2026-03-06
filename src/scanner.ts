@@ -65,6 +65,9 @@ function buildReport(
   // Filter ignored rules
   results = results.filter((r) => !config.ignore.includes(r.id));
 
+  // Deduplicate: same rule + same source file → single finding with occurrences count
+  results = deduplicateResults(results);
+
   // Calculate score
   const score = calculateScore(results);
   const grade = computeGrade(score);
@@ -87,6 +90,49 @@ function buildReport(
     grade,
     summary,
   };
+}
+
+/**
+ * Deduplicate results: same rule ID + same source file → single finding.
+ * Keeps the highest severity (most conservative). Sets occurrences count.
+ */
+function deduplicateResults(results: CheckResult[]): CheckResult[] {
+  const groups = new Map<string, CheckResult[]>();
+  const severityOrder: Record<Severity, number> = {
+    CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1,
+  };
+
+  for (const r of results) {
+    const sourceFile = extractSourceFile(r.message);
+    const key = `${r.id}::${sourceFile}`;
+    const group = groups.get(key);
+    if (group) {
+      group.push(r);
+    } else {
+      groups.set(key, [r]);
+    }
+  }
+
+  const deduped: CheckResult[] = [];
+  for (const group of groups.values()) {
+    // Pick the entry with highest severity
+    group.sort((a, b) => severityOrder[b.severity] - severityOrder[a.severity]);
+    const best = { ...group[0] };
+    if (group.length > 1) {
+      best.occurrences = group.length;
+      best.message += ` (${group.length} occurrences in this file)`;
+    }
+    deduped.push(best);
+  }
+
+  return deduped;
+}
+
+/** Extract the source file from a message like "SKILL.md:42: ..." or "At path/file.ts:10: ..." */
+function extractSourceFile(message: string): string {
+  // Pattern: "source:lineNum: ..." or "At source:lineNum: ..."
+  const m = message.match(/^(?:At\s+)?([^:]+):\d+:/);
+  return m?.[1] ?? 'unknown';
 }
 
 function calculateScore(results: CheckResult[]): number {

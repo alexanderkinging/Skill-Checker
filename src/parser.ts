@@ -47,7 +47,8 @@ export function parseSkill(dirPath: string): ParsedSkill {
     parseFrontmatter(raw);
 
   // Enumerate directory files
-  const files = enumerateFiles(absDir);
+  const warnings: string[] = [];
+  const files = enumerateFiles(absDir, warnings);
 
   return {
     dirPath: absDir,
@@ -58,6 +59,7 @@ export function parseSkill(dirPath: string): ParsedSkill {
     bodyLines: body.split('\n'),
     bodyStartLine,
     files,
+    warnings,
   };
 }
 
@@ -81,6 +83,7 @@ export function parseSkillContent(
     bodyLines: body.split('\n'),
     bodyStartLine,
     files: [],
+    warnings: [],
   };
 }
 
@@ -127,13 +130,32 @@ function parseFrontmatter(raw: string): FrontmatterResult {
   }
 }
 
-function enumerateFiles(dirPath: string, maxDepth = 5): SkillFile[] {
+/** Directories always skipped entirely (not security-relevant VCS internals) */
+const SKIP_DIRS = new Set(['.git']);
+
+/** Directories skipped with a warning (potentially hiding payloads) */
+const WARN_SKIP_DIRS = new Set(['node_modules']);
+
+/** Max scan depth — deep enough for real skills, bounded for safety */
+const MAX_DEPTH = 15;
+
+/** Max file size for full text read (5 MB) */
+const FULL_READ_LIMIT = 5_000_000;
+
+/** Partial read size for large text files — scan first 512 KB for key patterns */
+const PARTIAL_READ_LIMIT = 512 * 1024;
+
+function enumerateFiles(dirPath: string, warnings: string[]): SkillFile[] {
   const files: SkillFile[] = [];
 
   if (!existsSync(dirPath)) return files;
 
   function walk(currentDir: string, depth: number): void {
-    if (depth > maxDepth) return;
+    if (depth > MAX_DEPTH) {
+      const rel = currentDir.slice(dirPath.length + 1) || currentDir;
+      warnings.push(`Depth limit (${MAX_DEPTH}) exceeded at: ${rel}. Contents not scanned.`);
+      return;
+    }
 
     let entries;
     try {
@@ -146,8 +168,13 @@ function enumerateFiles(dirPath: string, maxDepth = 5): SkillFile[] {
       const fullPath = join(currentDir, entry.name);
 
       if (entry.isDirectory()) {
-        // Skip hidden dirs and node_modules
-        if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+        if (SKIP_DIRS.has(entry.name)) continue;
+        if (WARN_SKIP_DIRS.has(entry.name)) {
+          const rel = fullPath.slice(dirPath.length + 1);
+          warnings.push(`Skipped directory: ${rel}. May contain unscanned files.`);
+          continue;
+        }
+        // Hidden directories (except .git) ARE scanned — payloads can hide there
         walk(fullPath, depth + 1);
         continue;
       }
@@ -163,11 +190,27 @@ function enumerateFiles(dirPath: string, maxDepth = 5): SkillFile[] {
       const relativePath = fullPath.slice(dirPath.length + 1);
 
       let content: string | undefined;
-      if (!isBinary && stats.size < 1_000_000) {
-        try {
-          content = readFileSync(fullPath, 'utf-8');
-        } catch {
-          // skip unreadable files
+      if (!isBinary) {
+        if (stats.size <= FULL_READ_LIMIT) {
+          try {
+            content = readFileSync(fullPath, 'utf-8');
+          } catch {
+            // skip unreadable files
+          }
+        } else if (stats.size <= 50_000_000) {
+          // Large text file: partial read for pattern detection
+          try {
+            const fd = require('node:fs').openSync(fullPath, 'r');
+            const buf = Buffer.alloc(PARTIAL_READ_LIMIT);
+            const bytesRead = require('node:fs').readSync(fd, buf, 0, PARTIAL_READ_LIMIT, 0);
+            require('node:fs').closeSync(fd);
+            content = buf.slice(0, bytesRead).toString('utf-8');
+            warnings.push(`Large file partially scanned (first ${PARTIAL_READ_LIMIT} bytes): ${relativePath} (${stats.size} bytes total)`);
+          } catch {
+            warnings.push(`Large file could not be read: ${relativePath} (${stats.size} bytes)`);
+          }
+        } else {
+          warnings.push(`File too large to scan: ${relativePath} (${stats.size} bytes). Content not checked.`);
         }
       }
 

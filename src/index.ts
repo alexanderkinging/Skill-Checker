@@ -43,4 +43,5 @@ export {
   computeGrade,
   getHookAction,
   DEFAULT_CONFIG,
+  reduceSeverity,
 } from './types.js';
