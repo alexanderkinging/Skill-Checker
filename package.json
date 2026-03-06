@@ -1,6 +1,6 @@
 {
   "name": "skill-checker",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Security checker for Claude Code skills - detect injection, malicious code, and supply chain risks before installation",
   "type": "module",
   "main": "dist/index.js",
@@ -29,7 +29,13 @@
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run lint && npm test && npm run build"
   },
-  "keywords": ["claude-code", "skill", "security", "checker", "agent"],
+  "keywords": [
+    "claude-code",
+    "skill",
+    "security",
+    "checker",
+    "agent"
+  ],
   "license": "AGPL-3.0-only",
   "author": "Alexander Jin",
   "repository": {
