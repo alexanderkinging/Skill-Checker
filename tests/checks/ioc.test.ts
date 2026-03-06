@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { createHash } from 'node:crypto';
 import { iocChecks } from '../../src/checks/ioc.js';
 import { parseSkillContent } from '../../src/parser.js';
 import { resetIOCCache } from '../../src/ioc/index.js';
 import { levenshtein } from '../../src/utils/levenshtein.js';
-import { matchTyposquat, matchC2IPs } from '../../src/ioc/matcher.js';
+import { matchTyposquat, matchC2IPs, matchMaliciousHashes } from '../../src/ioc/matcher.js';
 import { DEFAULT_IOC } from '../../src/ioc/indicators.js';
 import type { ParsedSkill } from '../../src/types.js';
 
@@ -152,5 +153,17 @@ describe('IOC integration', () => {
     const results = iocChecks.run(skill);
     expect(results.filter((r) => r.id === 'SUPPLY-009').length).toBe(2);
     expect(results.filter((r) => r.id === 'SUPPLY-010').length).toBe(1);
+  });
+});
+
+describe('Regression: empty file hash false positive', () => {
+  it('seed data does not contain empty file SHA-256', () => {
+    const emptyHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+    expect(DEFAULT_IOC.malicious_hashes[emptyHash]).toBeUndefined();
+  });
+
+  it('SHA-256 of empty content matches known empty hash', () => {
+    const hash = createHash('sha256').update('').digest('hex');
+    expect(hash).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
   });
 });

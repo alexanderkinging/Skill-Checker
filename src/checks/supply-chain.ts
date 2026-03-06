@@ -20,21 +20,11 @@ import {
   isInNetworkRequestContext,
   isInDocumentationContext,
 } from '../utils/context.js';
+import { loadIOC } from '../ioc/index.js';
 
-/** Known suspicious/malicious domains (sample list) */
-const SUSPICIOUS_DOMAINS = [
-  'evil.com',
-  'malware.com',
-  'exploit.in',
+/** Hardcoded fallback domains (used when IOC has no malicious_domains) */
+const FALLBACK_SUSPICIOUS_DOMAINS = [
   'darkweb.onion',
-  'pastebin.com',  // often used for payload hosting
-  'ngrok.io',      // tunneling service
-  'requestbin.com',
-  'webhook.site',
-  'pipedream.net',
-  'burpcollaborator.net',
-  'interact.sh',
-  'oastify.com',
 ];
 
 const MCP_SERVER_PATTERN = /\bmcp[-_]?server\b/i;
@@ -55,6 +45,10 @@ export const supplyChainChecks: CheckModule = {
   run(skill: ParsedSkill): CheckResult[] {
     const results: CheckResult[] = [];
     const allText = getAllText(skill);
+    const ioc = loadIOC();
+    const suspiciousDomains = ioc.malicious_domains.length > 0
+      ? ioc.malicious_domains
+      : FALLBACK_SUSPICIOUS_DOMAINS;
 
     for (let i = 0; i < allText.length; i++) {
       const { line, lineNum, source } = allText[i];
@@ -158,8 +152,8 @@ export const supplyChainChecks: CheckModule = {
           }
         }
 
-        // SUPPLY-007: Known suspicious domains
-        for (const domain of SUSPICIOUS_DOMAINS) {
+        // SUPPLY-007: Known suspicious domains (from IOC database)
+        for (const domain of suspiciousDomains) {
           if (url.includes(domain)) {
             results.push({
               id: 'SUPPLY-007',

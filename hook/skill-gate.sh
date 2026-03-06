@@ -49,8 +49,8 @@ elif command -v npx &>/dev/null; then
 fi
 
 if [[ -z "$CHECKER" ]]; then
-  # skill-checker not found - warn but allow
-  echo '{"permissionDecision": "allow", "additionalContext": "[skill-gate] skill-checker not found. Install with: npm install -g skill-checker"}'
+  # skill-checker not found - fail-closed: ask user to review manually
+  echo '{"permissionDecision": "ask", "additionalContext": "[skill-gate] skill-checker not found. Install with: npm install -g skill-checker. Manual review recommended."}'
   exit 0
 fi
 
