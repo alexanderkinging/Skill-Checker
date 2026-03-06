@@ -4,11 +4,24 @@ Security checker for Claude Code skills — detect injection, malicious code, an
 
 ## Features
 
-- **48 security rules** across 6 categories: structural validity, content quality, injection detection, code safety, supply chain, and resource abuse
+- **51 security rules** across 6 categories: structural validity, content quality, injection detection, code safety, supply chain, and resource abuse
 - **Scoring system**: Grade A–F with 0–100 score
 - **Dual entry**: CLI tool + PreToolUse hook for automatic interception
 - **Configurable policies**: strict / balanced / permissive approval strategies
 - **Multiple output formats**: terminal (color), JSON, hook response
+
+## Security Standard & Benchmark
+
+Skill Checker's 51 rules are aligned with established security frameworks
+including OWASP Top 10 for LLM Applications (2025), MITRE CWE, and MITRE
+ATT&CK. The tool ships with a reproducible benchmark dataset of six fixture
+skills covering all rule categories. This alignment is an internal mapping
+exercise — Skill Checker does not claim third-party certification or
+external audit status.
+
+See [docs/SECURITY_BENCHMARK.md](docs/SECURITY_BENCHMARK.md) for the full
+rule mapping matrix, benchmark methodology, scoring model, and known
+limitations.
 
 ## Quick Start
 
