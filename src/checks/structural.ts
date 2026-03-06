@@ -99,6 +99,7 @@ export const structuralChecks: CheckModule = {
           severity: 'HIGH',
           title: 'Unexpected binary/executable file',
           message: `Found unexpected file: ${file.path} (${ext})`,
+          source: file.path,
         });
       }
     }
@@ -128,12 +129,15 @@ export const structuralChecks: CheckModule = {
 
     // STRUCT-008: Skipped or partially scanned paths
     for (const warning of skill.warnings) {
+      // Extract file/dir path from warning for structured dedup key
+      const pathMatch = warning.match(/:\s*(.+?)(?:\s*\(|$)/);
       results.push({
         id: 'STRUCT-008',
         category: 'STRUCT',
         severity: 'MEDIUM',
         title: 'Scan coverage warning',
         message: warning,
+        source: pathMatch?.[1]?.trim(),
       });
     }
 

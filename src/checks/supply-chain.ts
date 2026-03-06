@@ -99,6 +99,7 @@ export const supplyChainChecks: CheckModule = {
           message: `${source}:${lineNum}: References an MCP server. Verify it is from a trusted source.${msgSuffix}`,
           line: lineNum,
           snippet: line.trim().slice(0, 120),
+          source,
           reducedFrom,
         });
       }
@@ -113,6 +114,7 @@ export const supplyChainChecks: CheckModule = {
           message: `${source}:${lineNum}: Uses npx -y which auto-installs packages without confirmation.`,
           line: lineNum,
           snippet: line.trim().slice(0, 120),
+          source,
         });
       }
 
@@ -145,6 +147,7 @@ export const supplyChainChecks: CheckModule = {
             message: `${source}:${lineNum}: Installs packages. Verify package names are legitimate.${msgSuffix}`,
             line: lineNum,
             snippet: line.trim().slice(0, 120),
+            source,
             reducedFrom,
           });
         }
@@ -160,6 +163,7 @@ export const supplyChainChecks: CheckModule = {
           message: `${source}:${lineNum}: Clones a git repository. Verify the source.`,
           line: lineNum,
           snippet: line.trim().slice(0, 120),
+          source,
         });
       }
 
@@ -192,6 +196,7 @@ export const supplyChainChecks: CheckModule = {
               message: `${source}:${lineNum}: Uses insecure HTTP: ${url}${msgSuffix}`,
               line: lineNum,
               snippet: url,
+              source,
               reducedFrom,
             });
           }
@@ -209,6 +214,7 @@ export const supplyChainChecks: CheckModule = {
               message: `${source}:${lineNum}: Uses raw IP address: ${url}. This may bypass DNS-based security.`,
               line: lineNum,
               snippet: url,
+              source,
             });
           }
         }
@@ -225,6 +231,7 @@ export const supplyChainChecks: CheckModule = {
               message: `${source}:${lineNum}: References suspicious domain "${domain}".`,
               line: lineNum,
               snippet: url,
+              source,
             });
             break;
           }

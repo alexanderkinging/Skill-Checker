@@ -53,6 +53,7 @@ export interface CheckResult {
   message: string;
   line?: number;         // line number in SKILL.md
   snippet?: string;      // relevant code snippet
+  source?: string;       // structured source file path (e.g. "SKILL.md", "lib/helper.js")
   reducedFrom?: Severity; // original severity before context-aware reduction
   occurrences?: number;   // count after per-file deduplication
 }
@@ -194,5 +195,10 @@ export function getHookAction(
       LOW: 'report',
     },
   };
-  return matrix[policy][severity];
+  const row = matrix[policy];
+  if (!row) {
+    // Defensive: unknown policy falls back to balanced (fail-closed)
+    return matrix.balanced[severity];
+  }
+  return row[severity];
 }

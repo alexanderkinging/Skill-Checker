@@ -93,8 +93,12 @@ function buildReport(
 }
 
 /**
- * Deduplicate results: same rule ID + same source file → single finding.
+ * Deduplicate results: same rule ID + same source → single finding.
  * Keeps the highest severity (most conservative). Sets occurrences count.
+ *
+ * Key uses the structural `source` field when available.
+ * Falls back to `category + line` when source is absent, to avoid
+ * merging unrelated findings under a shared "unknown" bucket.
  */
 function deduplicateResults(results: CheckResult[]): CheckResult[] {
   const groups = new Map<string, CheckResult[]>();
@@ -103,8 +107,9 @@ function deduplicateResults(results: CheckResult[]): CheckResult[] {
   };
 
   for (const r of results) {
-    const sourceFile = extractSourceFile(r.message);
-    const key = `${r.id}::${sourceFile}`;
+    // Prefer structural source; fall back to category+line for uniqueness
+    const sourceKey = r.source ?? `_no_source_:${r.category}:${r.line ?? ''}`;
+    const key = `${r.id}::${sourceKey}`;
     const group = groups.get(key);
     if (group) {
       group.push(r);
@@ -120,19 +125,16 @@ function deduplicateResults(results: CheckResult[]): CheckResult[] {
     const best = { ...group[0] };
     if (group.length > 1) {
       best.occurrences = group.length;
-      best.message += ` (${group.length} occurrences in this file)`;
+      // Only say "in this file" when we have a real source
+      const suffix = best.source
+        ? ` (${group.length} occurrences in this file)`
+        : ` (${group.length} occurrences)`;
+      best.message += suffix;
     }
     deduped.push(best);
   }
 
   return deduped;
-}
-
-/** Extract the source file from a message like "SKILL.md:42: ..." or "At path/file.ts:10: ..." */
-function extractSourceFile(message: string): string {
-  // Pattern: "source:lineNum: ..." or "At source:lineNum: ..."
-  const m = message.match(/^(?:At\s+)?([^:]+):\d+:/);
-  return m?.[1] ?? 'unknown';
 }
 
 function calculateScore(results: CheckResult[]): number {

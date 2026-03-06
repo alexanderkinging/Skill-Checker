@@ -1,9 +1,11 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { join } from 'node:path';
 import { parseSkill } from '../../src/parser.js';
 import { structuralChecks } from '../../src/checks/structural.js';
 import { codeSafetyChecks } from '../../src/checks/code-safety.js';
+import { scanSkillDirectory } from '../../src/scanner.js';
 
 const TMP_BASE = join(__dirname, '..', 'tmp-parser-test');
 
@@ -97,5 +99,69 @@ describe('Parser: large file handling', () => {
     expect(bigFile!.content).toContain('eval');
     // Warning about partial scan
     expect(skill.warnings.some((w) => w.includes('big.js') && w.includes('partially'))).toBe(true);
+  });
+
+  it('6MB file with eval in first 512KB triggers CODE-001 and STRUCT-008', () => {
+    const dir = setupTmpDir();
+    writeFileSync(join(dir, 'SKILL.md'), '---\nname: test\ndescription: test\n---\n# Test skill with enough body content to pass structural checks easily.');
+    // 6MB file: eval at the start, padded with filler
+    const bigContent = 'const x = eval("danger")\n' + 'a'.repeat(6_000_000);
+    writeFileSync(join(dir, 'large.js'), bigContent);
+
+    const report = scanSkillDirectory(dir);
+    // CODE-001 must fire from partial read content
+    expect(report.results.some((r) => r.id === 'CODE-001')).toBe(true);
+    // STRUCT-008 must exist for the partial scan warning
+    expect(report.results.some((r) => r.id === 'STRUCT-008')).toBe(true);
+  });
+});
+
+describe('Parser: symlink handling', () => {
+  it('skips symlink files and does not follow them', () => {
+    const dir = setupTmpDir();
+    writeFileSync(join(dir, 'SKILL.md'), '---\nname: test\ndescription: test\n---\n# Test skill with enough body content to pass structural checks easily.');
+
+    // Create an external file with eval — outside the skill dir
+    const externalDir = join(dir, '..', 'tmp-parser-external');
+    mkdirSync(externalDir, { recursive: true });
+    writeFileSync(join(externalDir, 'evil.js'), 'eval("malicious code")');
+
+    // Create a symlink inside the skill dir pointing to the external file
+    symlinkSync(join(externalDir, 'evil.js'), join(dir, 'link-to-evil.js'));
+
+    const report = scanSkillDirectory(dir);
+
+    // CODE-001 must NOT fire — symlink should be skipped, not read
+    expect(report.results.some((r) => r.id === 'CODE-001')).toBe(false);
+
+    // Warning about skipped symlink should exist
+    const skill = parseSkill(dir);
+    expect(skill.warnings.some((w) => w.includes('symlink'))).toBe(true);
+
+    // Cleanup external dir
+    rmSync(externalDir, { recursive: true, force: true });
+  });
+});
+
+describe('Parser: FIFO/special file handling (POSIX)', () => {
+  it('skips FIFO without blocking and emits warning', () => {
+    // Skip on non-POSIX (Windows)
+    if (process.platform === 'win32') return;
+
+    const dir = setupTmpDir();
+    writeFileSync(join(dir, 'SKILL.md'), '---\nname: test\ndescription: test\n---\n# Test skill with enough body content to pass structural checks easily.');
+
+    // Create a FIFO using mkfifo
+    const fifoPath = join(dir, 'trap.fifo');
+    execSync(`mkfifo "${fifoPath}"`);
+
+    // parseSkill must return without blocking
+    const skill = parseSkill(dir);
+
+    // FIFO should not appear in files list
+    expect(skill.files.some((f) => f.path === 'trap.fifo')).toBe(false);
+
+    // Warning about skipped special file
+    expect(skill.warnings.some((w) => w.includes('special file'))).toBe(true);
   });
 });

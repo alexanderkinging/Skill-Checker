@@ -40,6 +40,7 @@ export const iocChecks: CheckModule = {
         title: 'Known malicious file hash',
         message: `File "${match.file}" matches known malicious hash: ${match.description}`,
         snippet: match.hash,
+        source: match.file,
       });
     }
 
@@ -54,6 +55,7 @@ export const iocChecks: CheckModule = {
         message: `${match.source}:${match.line}: Contains known C2 server IP: ${match.ip}`,
         line: match.line,
         snippet: match.snippet,
+        source: match.source,
       });
     }
 

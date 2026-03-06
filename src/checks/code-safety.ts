@@ -132,6 +132,7 @@ export const codeSafetyChecks: CheckModule = {
           title: 'eval/exec/Function constructor',
           loc,
           lineNum,
+          source,
         });
 
         // CODE-002: shell execution — always CRITICAL, no code block reduction
@@ -142,6 +143,7 @@ export const codeSafetyChecks: CheckModule = {
             title: 'Shell/subprocess execution',
             loc,
             lineNum,
+            source,
           });
         }
 
@@ -152,6 +154,7 @@ export const codeSafetyChecks: CheckModule = {
           title: 'Destructive file operation',
           loc,
           lineNum,
+          source,
           codeBlockCtx: cbCtx,
         });
 
@@ -162,6 +165,7 @@ export const codeSafetyChecks: CheckModule = {
           title: 'Hardcoded external URL/network request',
           loc,
           lineNum,
+          source,
           codeBlockCtx: cbCtx,
         });
 
@@ -172,6 +176,7 @@ export const codeSafetyChecks: CheckModule = {
           title: 'File write outside expected directory',
           loc,
           lineNum,
+          source,
         });
 
         // CODE-006: env var access — code block reduction
@@ -181,6 +186,7 @@ export const codeSafetyChecks: CheckModule = {
           title: 'Environment variable access',
           loc,
           lineNum,
+          source,
           codeBlockCtx: cbCtx,
         });
 
@@ -191,6 +197,7 @@ export const codeSafetyChecks: CheckModule = {
           title: 'Dynamic code generation pattern',
           loc,
           lineNum,
+          source,
         });
 
         // CODE-012: permission escalation
@@ -204,6 +211,7 @@ export const codeSafetyChecks: CheckModule = {
               title: 'Permission escalation',
               loc,
               lineNum,
+              source,
             });
           }
         }
@@ -224,6 +232,7 @@ interface PatternCheckOpts {
   title: string;
   loc: string;
   lineNum: number;
+  source: string;
   codeBlockCtx?: { lines: string[]; index: number };
 }
 
@@ -252,6 +261,7 @@ function checkPatterns(
         message: `At ${opts.loc}: ${line.trim().slice(0, 120)}${msgSuffix}`,
         line: opts.lineNum,
         snippet: line.trim().slice(0, 120),
+        source: opts.source,
         reducedFrom,
       });
       return; // one match per line per rule
@@ -293,6 +303,7 @@ function scanEncodedStrings(
         message: `${source}:${lineNum}: Found ${str.length}-char encoded string.`,
         line: lineNum,
         snippet: str.slice(0, 80) + '...',
+        source,
       });
     }
   }
@@ -310,6 +321,7 @@ function scanEncodedStrings(
         title: 'High entropy string',
         message: `${source}:${lineNum}: String "${match[0].slice(0, 30)}..." has entropy ${entropy.toFixed(2)} bits/char.`,
         line: lineNum,
+        source,
       });
     }
   }
@@ -329,6 +341,7 @@ function scanEncodedStrings(
         severity: 'CRITICAL',
         title: 'Multi-layer encoding detected',
         message: `${source}: Contains nested encoding/decoding operations.`,
+        source,
       });
       break;
     }
@@ -351,6 +364,7 @@ function scanObfuscation(
       severity: 'MEDIUM',
       title: 'Obfuscated variable names',
       message: `${source}: Found ${obfMatches.length} hex-style variable names (e.g. ${obfMatches[0]}). May indicate obfuscated code.`,
+      source,
     });
   }
 }

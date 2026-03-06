@@ -13,7 +13,7 @@ installation. The scanner examines:
 - All non-binary files in the skill directory (up to depth 15)
 - Binary files by metadata only (presence, extension, size)
 
-Detection is organized into **6 rule categories** (51 rules total):
+Detection is organized into **6 rule categories** (52 rules total):
 
 | Category | Prefix | Rules | Focus |
 |----------|--------|-------|-------|

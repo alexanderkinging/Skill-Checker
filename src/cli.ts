@@ -34,6 +34,8 @@ program
   )
   .version(pkg.version);
 
+const VALID_POLICIES = ['strict', 'balanced', 'permissive'] as const;
+
 program
   .command('scan')
   .description('Scan a skill directory for security issues')
@@ -46,6 +48,11 @@ program
       path: string,
       opts: { format: string; policy?: string; config?: string }
     ) => {
+      // Validate policy before anything else
+      if (opts.policy && !VALID_POLICIES.includes(opts.policy as PolicyLevel)) {
+        console.error(`Error: invalid policy "${opts.policy}". Valid values: ${VALID_POLICIES.join(', ')}`);
+        process.exit(1);
+      }
       // Load config
       const config = loadConfig(path, opts.config);
 

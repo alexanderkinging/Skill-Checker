@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, lstatSync, existsSync, openSync, readSync, closeSync } from 'node:fs';
 import { join, extname, basename, resolve } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 import type { ParsedSkill, SkillFrontmatter, SkillFile } from './types.js';
@@ -166,12 +166,26 @@ function enumerateFiles(dirPath: string, warnings: string[]): SkillFile[] {
 
     for (const entry of entries) {
       const fullPath = join(currentDir, entry.name);
+      const relativePath = fullPath.slice(dirPath.length + 1);
 
-      if (entry.isDirectory()) {
+      // Use lstat to detect symlinks without following them
+      let lstats;
+      try {
+        lstats = lstatSync(fullPath);
+      } catch {
+        continue;
+      }
+
+      // Skip symlinks entirely — prevent traversal outside skill directory
+      if (lstats.isSymbolicLink()) {
+        warnings.push(`Skipped symlink: ${relativePath}`);
+        continue;
+      }
+
+      if (lstats.isDirectory()) {
         if (SKIP_DIRS.has(entry.name)) continue;
         if (WARN_SKIP_DIRS.has(entry.name)) {
-          const rel = fullPath.slice(dirPath.length + 1);
-          warnings.push(`Skipped directory: ${rel}. May contain unscanned files.`);
+          warnings.push(`Skipped directory: ${relativePath}. May contain unscanned files.`);
           continue;
         }
         // Hidden directories (except .git) ARE scanned — payloads can hide there
@@ -179,38 +193,41 @@ function enumerateFiles(dirPath: string, warnings: string[]): SkillFile[] {
         continue;
       }
 
-      const ext = extname(entry.name).toLowerCase();
-      let stats;
-      try {
-        stats = statSync(fullPath);
-      } catch {
+      // Skip special files (FIFO, socket, device, etc.) — only process regular files
+      if (!lstats.isFile()) {
+        warnings.push(`Skipped special file: ${relativePath}`);
         continue;
       }
+
+      const ext = extname(entry.name).toLowerCase();
       const isBinary = BINARY_EXTENSIONS.has(ext);
-      const relativePath = fullPath.slice(dirPath.length + 1);
 
       let content: string | undefined;
       if (!isBinary) {
-        if (stats.size <= FULL_READ_LIMIT) {
+        if (lstats.size <= FULL_READ_LIMIT) {
           try {
             content = readFileSync(fullPath, 'utf-8');
           } catch {
             // skip unreadable files
           }
-        } else if (stats.size <= 50_000_000) {
+        } else if (lstats.size <= 50_000_000) {
           // Large text file: partial read for pattern detection
+          let fd: number | undefined;
           try {
-            const fd = require('node:fs').openSync(fullPath, 'r');
+            fd = openSync(fullPath, 'r');
             const buf = Buffer.alloc(PARTIAL_READ_LIMIT);
-            const bytesRead = require('node:fs').readSync(fd, buf, 0, PARTIAL_READ_LIMIT, 0);
-            require('node:fs').closeSync(fd);
+            const bytesRead = readSync(fd, buf, 0, PARTIAL_READ_LIMIT, 0);
             content = buf.slice(0, bytesRead).toString('utf-8');
-            warnings.push(`Large file partially scanned (first ${PARTIAL_READ_LIMIT} bytes): ${relativePath} (${stats.size} bytes total)`);
+            warnings.push(`Large file partially scanned (first ${PARTIAL_READ_LIMIT} bytes): ${relativePath} (${lstats.size} bytes total)`);
           } catch {
-            warnings.push(`Large file could not be read: ${relativePath} (${stats.size} bytes)`);
+            warnings.push(`Large file could not be read: ${relativePath} (${lstats.size} bytes)`);
+          } finally {
+            if (fd !== undefined) {
+              try { closeSync(fd); } catch { /* fd already closed or invalid */ }
+            }
           }
         } else {
-          warnings.push(`File too large to scan: ${relativePath} (${stats.size} bytes). Content not checked.`);
+          warnings.push(`File too large to scan: ${relativePath} (${lstats.size} bytes). Content not checked.`);
         }
       }
 
@@ -218,7 +235,7 @@ function enumerateFiles(dirPath: string, warnings: string[]): SkillFile[] {
         path: relativePath,
         name: basename(entry.name, ext),
         extension: ext,
-        sizeBytes: stats.size,
+        sizeBytes: lstats.size,
         isBinary,
         content,
       });

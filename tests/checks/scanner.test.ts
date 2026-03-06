@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { join } from 'node:path';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { scanSkillDirectory, scanSkillContent } from '../../src/scanner.js';
 
 const FIXTURES = join(import.meta.dirname, '..', 'fixtures');
@@ -54,5 +55,59 @@ describe('Scanner', () => {
       { policy: 'balanced', overrides: {}, ignore: ['CODE-006'] }
     );
     expect(report.results.some((r) => r.id === 'CODE-006')).toBe(false);
+  });
+});
+
+const TMP_DEDUP = join(import.meta.dirname, '..', 'tmp-dedup-test');
+
+function setupDedup(): string {
+  rmSync(TMP_DEDUP, { recursive: true, force: true });
+  mkdirSync(TMP_DEDUP, { recursive: true });
+  return TMP_DEDUP;
+}
+
+afterEach(() => {
+  rmSync(TMP_DEDUP, { recursive: true, force: true });
+});
+
+describe('Deduplication: different files must not merge', () => {
+  it('two .exe files produce two separate STRUCT-006 findings', () => {
+    const dir = setupDedup();
+    writeFileSync(join(dir, 'SKILL.md'), '---\nname: test\ndescription: test\n---\n# Test skill with enough body content to pass structural checks easily.');
+    writeFileSync(join(dir, 'a.exe'), 'binary-a');
+    writeFileSync(join(dir, 'b.exe'), 'binary-b');
+
+    const report = scanSkillDirectory(dir);
+    const struct006 = report.results.filter((r) => r.id === 'STRUCT-006');
+    expect(struct006.length).toBe(2);
+    // Neither should have occurrences > 1
+    expect(struct006.every((r) => !r.occurrences || r.occurrences === 1)).toBe(true);
+  });
+
+  it('same rule same file merges with correct occurrences', () => {
+    const dir = setupDedup();
+    writeFileSync(join(dir, 'SKILL.md'), '---\nname: test\ndescription: test\n---\n# Test skill with enough body content to pass structural checks easily.');
+    // Two eval calls in the same file → should merge into 1 finding
+    writeFileSync(join(dir, 'bad.js'), 'eval("a")\neval("b")');
+
+    const report = scanSkillDirectory(dir);
+    const code001 = report.results.filter((r) => r.id === 'CODE-001' && r.source === 'bad.js');
+    expect(code001.length).toBe(1);
+    expect(code001[0].occurrences).toBe(2);
+    expect(code001[0].message).toContain('occurrences in this file');
+  });
+
+  it('same rule in different files stays separate', () => {
+    const dir = setupDedup();
+    writeFileSync(join(dir, 'SKILL.md'), '---\nname: test\ndescription: test\n---\n# Test skill with enough body content to pass structural checks easily.');
+    writeFileSync(join(dir, 'x.js'), 'eval("a")');
+    writeFileSync(join(dir, 'y.js'), 'eval("b")');
+
+    const report = scanSkillDirectory(dir);
+    const code001 = report.results.filter((r) => r.id === 'CODE-001');
+    // Must have at least 2 separate findings (one per file)
+    const sources = code001.map((r) => r.source);
+    expect(sources).toContain('x.js');
+    expect(sources).toContain('y.js');
   });
 });
