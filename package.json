@@ -5,6 +5,19 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/",
+    "bin/",
+    "hook/",
+    "LICENSE",
+    "README.md"
+  ],
   "bin": {
     "skill-checker": "bin/skill-checker.js"
   },
@@ -13,10 +26,20 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run lint && npm test && npm run build"
   },
   "keywords": ["claude-code", "skill", "security", "checker", "agent"],
   "license": "AGPL-3.0-only",
+  "author": "Alexander Jin",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alexanderkinging/Skill-Checker.git"
+  },
+  "homepage": "https://github.com/alexanderkinging/Skill-Checker",
+  "bugs": {
+    "url": "https://github.com/alexanderkinging/Skill-Checker/issues"
+  },
   "dependencies": {
     "chalk": "^5.3.0",
     "cli-table3": "^0.6.5",

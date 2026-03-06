@@ -1,0 +1,21 @@
+# Source & tests
+src/
+tests/
+
+# Config files
+tsconfig.json
+tsup.config.ts
+vitest.config.ts
+.skillcheckerrc.yaml
+
+# Project metadata
+docs/
+.claude/
+.project/
+.github/
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
