@@ -169,6 +169,26 @@ export const resourceChecks: CheckModule = {
       });
     }
 
+    // RES-002 (frontmatter): Check allowed-tools for dangerous patterns
+    if (Array.isArray(allowedTools)) {
+      for (const tool of allowedTools) {
+        if (typeof tool !== 'string') continue;
+        for (const pattern of UNRESTRICTED_TOOL_PATTERNS) {
+          if (pattern.test(tool)) {
+            results.push({
+              id: 'RES-002',
+              category: 'RES',
+              severity: 'CRITICAL',
+              title: 'Unrestricted tool access requested',
+              message: `Frontmatter allowed-tools contains dangerous pattern: "${tool}"`,
+              snippet: tool.slice(0, 120),
+            });
+            break;
+          }
+        }
+      }
+    }
+
     return results;
   },
 };

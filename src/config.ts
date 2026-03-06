@@ -27,9 +27,21 @@ const CONFIG_FILENAMES = [
 ];
 
 /**
- * Load configuration by searching up the directory tree.
+ * Load configuration.
+ * If configPath is provided and points to a file, load it directly.
+ * Otherwise, search up the directory tree from startDir.
  */
-export function loadConfig(startDir?: string): SkillCheckerConfig {
+export function loadConfig(startDir?: string, configPath?: string): SkillCheckerConfig {
+  // Direct file path provided via --config
+  if (configPath) {
+    const absPath = resolve(configPath);
+    if (existsSync(absPath)) {
+      return parseConfigFile(absPath);
+    }
+    // Config file specified but not found - return default
+    return { ...DEFAULT_CONFIG };
+  }
+
   const dir = startDir ? resolve(startDir) : process.cwd();
 
   // Search for config file in current dir and parents

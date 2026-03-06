@@ -127,31 +127,52 @@ function parseFrontmatter(raw: string): FrontmatterResult {
   }
 }
 
-function enumerateFiles(dirPath: string): SkillFile[] {
+function enumerateFiles(dirPath: string, maxDepth = 5): SkillFile[] {
   const files: SkillFile[] = [];
 
   if (!existsSync(dirPath)) return files;
 
-  try {
-    const entries = readdirSync(dirPath, { withFileTypes: true });
+  function walk(currentDir: string, depth: number): void {
+    if (depth > maxDepth) return;
+
+    let entries;
+    try {
+      entries = readdirSync(currentDir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
     for (const entry of entries) {
-      if (entry.isDirectory()) continue; // skip subdirs for now
-      const filePath = join(dirPath, entry.name);
+      const fullPath = join(currentDir, entry.name);
+
+      if (entry.isDirectory()) {
+        // Skip hidden dirs and node_modules
+        if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+        walk(fullPath, depth + 1);
+        continue;
+      }
+
       const ext = extname(entry.name).toLowerCase();
-      const stats = statSync(filePath);
+      let stats;
+      try {
+        stats = statSync(fullPath);
+      } catch {
+        continue;
+      }
       const isBinary = BINARY_EXTENSIONS.has(ext);
+      const relativePath = fullPath.slice(dirPath.length + 1);
 
       let content: string | undefined;
       if (!isBinary && stats.size < 1_000_000) {
         try {
-          content = readFileSync(filePath, 'utf-8');
+          content = readFileSync(fullPath, 'utf-8');
         } catch {
           // skip unreadable files
         }
       }
 
       files.push({
-        path: entry.name,
+        path: relativePath,
         name: basename(entry.name, ext),
         extension: ext,
         sizeBytes: stats.size,
@@ -159,9 +180,8 @@ function enumerateFiles(dirPath: string): SkillFile[] {
         content,
       });
     }
-  } catch {
-    // directory not readable
   }
 
+  walk(dirPath, 0);
   return files;
 }

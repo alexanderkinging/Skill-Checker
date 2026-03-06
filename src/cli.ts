@@ -43,7 +43,7 @@ program
       opts: { format: string; policy?: string; config?: string }
     ) => {
       // Load config
-      const config = loadConfig(opts.config ?? path);
+      const config = loadConfig(path, opts.config);
 
       // Override policy from CLI
       if (opts.policy) {

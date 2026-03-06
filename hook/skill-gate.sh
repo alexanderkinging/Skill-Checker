@@ -16,11 +16,17 @@
 
 set -euo pipefail
 
+# Check jq availability - required for parsing hook JSON
+if ! command -v jq &>/dev/null; then
+  echo '{"permissionDecision": "ask", "additionalContext": "[skill-gate] jq is required but not found. Install with: brew install jq (macOS) or apt install jq (Linux)"}'
+  exit 0
+fi
+
 # Read hook input from stdin
 INPUT=$(cat)
 
 # Extract the file path from the hook input
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.path // empty' 2>/dev/null)
+FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.path // empty')
 
 # Only process SKILL.md files in skills directories
 if [[ -z "$FILE_PATH" ]] || [[ ! "$FILE_PATH" =~ SKILL\.md$ ]]; then
@@ -54,7 +60,7 @@ TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
 # Extract file content from hook input and write to temp
-CONTENT=$(echo "$INPUT" | jq -r '.tool_input.content // empty' 2>/dev/null)
+CONTENT=$(echo "$INPUT" | jq -r '.tool_input.content // empty')
 if [[ -n "$CONTENT" ]]; then
   echo "$CONTENT" > "$TEMP_DIR/SKILL.md"
   SCAN_DIR="$TEMP_DIR"
@@ -63,11 +69,11 @@ else
   SCAN_DIR="$SKILL_DIR"
 fi
 
-# Run the scan in hook mode
-RESULT=$($CHECKER scan "$SCAN_DIR" --format hook 2>/dev/null) || true
+# Run the scan in hook mode - fail-closed: scanner errors → ask user
+RESULT=$($CHECKER scan "$SCAN_DIR" --format hook 2>/dev/null) || RESULT=""
 
 if [[ -z "$RESULT" ]]; then
-  echo '{"permissionDecision": "allow", "additionalContext": "[skill-gate] Scan failed to produce results."}'
+  echo '{"permissionDecision": "ask", "additionalContext": "[skill-gate] Scan failed or produced no results. Manual review recommended."}'
   exit 0
 fi
 
