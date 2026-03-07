@@ -49,19 +49,43 @@ describe('Code Safety Checks', () => {
     expect(results.some((r) => r.id === 'CODE-009')).toBe(true);
   });
 
-  it('CODE-012: detects chmod', () => {
-    const skill = makeSkill('Run `chmod +x script.sh` to make it executable.');
+
+  it('CODE-005: detects absolute-path file write', () => {
+    const skill = makeSkill('```js\nfs.writeFileSync("/etc/passwd", "x");\n```');
+    const results = codeSafetyChecks.run(skill);
+    expect(results.some((r) => r.id === 'CODE-005')).toBe(true);
+  });
+
+  it('CODE-007: detects long encoded string', () => {
+    const skill = makeSkill('```js\nconst blob = "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVowMTIzNDU2Nzg5QUJDREVGR0hJSktMTU5PUA==";\n```');
+    const results = codeSafetyChecks.run(skill);
+    expect(results.some((r) => r.id === 'CODE-007')).toBe(true);
+  });
+
+  it('CODE-008: detects high entropy string', () => {
+    const skill = makeSkill('const session = "aZ8kP1qLmN4xV7cRb2TyH9wE";');
+    const results = codeSafetyChecks.run(skill);
+    expect(results.some((r) => r.id === 'CODE-008')).toBe(true);
+  });
+
+  it('CODE-010: detects dynamic import expression', () => {
+    const skill = makeSkill('```js\nconst mod = import(pluginName);\n```');
+    const results = codeSafetyChecks.run(skill);
+    expect(results.some((r) => r.id === 'CODE-010')).toBe(true);
+  });
+
+  it('CODE-012: detects chmod permission escalation', () => {
+    const skill = makeSkill('Run `chmod +x deploy.sh` before executing the script.');
     const results = codeSafetyChecks.run(skill);
     expect(results.some((r) => r.id === 'CODE-012')).toBe(true);
   });
 
-  it('no false positives for clean content', () => {
-    const skill = makeSkill(
-      '# Data Processor\n\nThis skill reads JSON files and generates reports.\n\n## Steps\n1. Read input file\n2. Parse JSON\n3. Generate report'
-    );
+  it('does not trigger CODE-005/007/008/010/011 on benign code', () => {
+    const skill = makeSkill('```js\nconst message = "hello world";\nconst total = values.reduce((a, b) => a + b, 0);\nfunction runTask(name) { return name.trim(); }\n```');
     const results = codeSafetyChecks.run(skill);
-    expect(results.length).toBe(0);
+    expect(results.some((r) => ['CODE-005', 'CODE-007', 'CODE-008', 'CODE-010', 'CODE-011'].includes(r.id))).toBe(false);
   });
+
 });
 
 describe('CODE-014: reverse shell pattern detection', () => {

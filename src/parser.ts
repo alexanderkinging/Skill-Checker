@@ -210,15 +210,28 @@ function enumerateFiles(dirPath: string, warnings: string[]): SkillFile[] {
           } catch {
             // skip unreadable files
           }
-        } else if (lstats.size <= 50_000_000) {
-          // Large text file: partial read for pattern detection
+        } else {
+          // Large text file: window scan (head + tail) for pattern detection
           let fd: number | undefined;
           try {
             fd = openSync(fullPath, 'r');
-            const buf = Buffer.alloc(PARTIAL_READ_LIMIT);
-            const bytesRead = readSync(fd, buf, 0, PARTIAL_READ_LIMIT, 0);
-            content = buf.slice(0, bytesRead).toString('utf-8');
-            warnings.push(`Large file partially scanned (first ${PARTIAL_READ_LIMIT} bytes): ${relativePath} (${lstats.size} bytes total)`);
+
+            const headBuf = Buffer.alloc(PARTIAL_READ_LIMIT);
+            const headBytesRead = readSync(fd, headBuf, 0, PARTIAL_READ_LIMIT, 0);
+            const headContent = headBuf.slice(0, headBytesRead).toString('utf-8');
+
+            const tailOffset = Math.max(0, lstats.size - PARTIAL_READ_LIMIT);
+            const tailBuf = Buffer.alloc(PARTIAL_READ_LIMIT);
+            const tailBytesRead = readSync(fd, tailBuf, 0, PARTIAL_READ_LIMIT, tailOffset);
+            const tailContent = tailBuf.slice(0, tailBytesRead).toString('utf-8');
+
+            content = tailOffset > 0
+              ? `${headContent}\n/* ... window gap ... */\n${tailContent}`
+              : headContent;
+
+            warnings.push(
+              `Large file window-scanned (head+tail ${PARTIAL_READ_LIMIT} bytes each): ${relativePath} (${lstats.size} bytes total)`
+            );
           } catch {
             warnings.push(`Large file could not be read: ${relativePath} (${lstats.size} bytes)`);
           } finally {
@@ -226,8 +239,6 @@ function enumerateFiles(dirPath: string, warnings: string[]): SkillFile[] {
               try { closeSync(fd); } catch { /* fd already closed or invalid */ }
             }
           }
-        } else {
-          warnings.push(`File too large to scan: ${relativePath} (${lstats.size} bytes). Content not checked.`);
         }
       }
 

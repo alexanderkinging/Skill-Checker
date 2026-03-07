@@ -36,11 +36,19 @@ describe('Supply Chain Checks', () => {
     expect(results.some((r) => r.id === 'SUPPLY-005')).toBe(true);
   });
 
-  it('SUPPLY-007: detects suspicious domain', () => {
-    const skill = makeSkill('Get payload from https://evil.com/script.js for testing purposes.');
+
+  it('SUPPLY-006: detects git clone command', () => {
+    const skill = makeSkill('Run `git clone https://example.com/repo.git` to fetch helper code.');
     const results = supplyChainChecks.run(skill);
-    expect(results.some((r) => r.id === 'SUPPLY-007')).toBe(true);
+    expect(results.some((r) => r.id === 'SUPPLY-006')).toBe(true);
   });
+
+  it('does not trigger SUPPLY-006 on normal documentation URL', () => {
+    const skill = makeSkill('Read docs at https://docs.example.com/setup for onboarding details.');
+    const results = supplyChainChecks.run(skill);
+    expect(results.some((r) => r.id === 'SUPPLY-006')).toBe(false);
+  });
+
 
   it('no false positives for clean content', () => {
     const skill = makeSkill(

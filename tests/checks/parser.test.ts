@@ -98,7 +98,7 @@ describe('Parser: large file handling', () => {
     // Content should be present (partial read)
     expect(bigFile!.content).toContain('eval');
     // Warning about partial scan
-    expect(skill.warnings.some((w) => w.includes('big.js') && w.includes('partially'))).toBe(true);
+    expect(skill.warnings.some((w) => w.includes('big.js') && w.includes('window-scanned'))).toBe(true);
   });
 
   it('6MB file with eval in first 512KB triggers CODE-001 and STRUCT-008', () => {
@@ -113,6 +113,33 @@ describe('Parser: large file handling', () => {
     expect(report.results.some((r) => r.id === 'CODE-001')).toBe(true);
     // STRUCT-008 must exist for the partial scan warning
     expect(report.results.some((r) => r.id === 'STRUCT-008')).toBe(true);
+  });
+
+  it('6MB file with eval only in tail window still triggers CODE-001', () => {
+    const dir = setupTmpDir();
+    writeFileSync(join(dir, 'SKILL.md'), '---\nname: test\ndescription: test\n---\n# Test skill with enough body content to pass structural checks easily.');
+
+    const tailPayload = '\nconst pwn = eval("tail payload")\n';
+    const bigContent = 'a'.repeat(6_000_000) + tailPayload;
+    writeFileSync(join(dir, 'tail-large.js'), bigContent);
+
+    const report = scanSkillDirectory(dir);
+    expect(report.results.some((r) => r.id === 'CODE-001')).toBe(true);
+  });
+
+  it('files larger than 50MB are window-scanned and still produce STRUCT-008 warning', () => {
+    const dir = setupTmpDir();
+    writeFileSync(join(dir, 'SKILL.md'), '---\nname: test\ndescription: test\n---\n# Test skill with enough body content to pass structural checks easily.');
+
+    const hugeContent = 'b'.repeat(50_100_000) + '\nconst x = eval("huge tail payload")\n';
+    writeFileSync(join(dir, 'huge-tail.js'), hugeContent);
+
+    const report = scanSkillDirectory(dir);
+    expect(report.results.some((r) => r.id === 'CODE-001')).toBe(true);
+    expect(report.results.some((r) => r.id === 'STRUCT-008')).toBe(true);
+
+    const skill = parseSkill(dir);
+    expect(skill.warnings.some((w) => w.includes('huge-tail.js') && w.includes('window'))).toBe(true);
   });
 });
 

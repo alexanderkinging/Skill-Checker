@@ -26,6 +26,7 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run lint && npm test && npm run build"
   },
@@ -56,6 +57,7 @@
     "tsup": "^8.0.0",
     "typescript": "^5.3.0",
     "vitest": "^2.0.0",
+    "@vitest/coverage-v8": "^2.1.9",
     "@types/node": "^20.0.0"
   },
   "engines": {
