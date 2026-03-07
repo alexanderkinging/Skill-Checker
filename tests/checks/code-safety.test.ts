@@ -63,3 +63,139 @@ describe('Code Safety Checks', () => {
     expect(results.length).toBe(0);
   });
 });
+
+describe('CODE-013: API key/credential leakage detection', () => {
+  it('detects Anthropic key as CRITICAL', () => {
+    const skill = makeSkill('const key = "sk-ant-api03-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-013');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('CRITICAL');
+  });
+
+  it('detects OpenAI sk-proj key as CRITICAL', () => {
+    const skill = makeSkill('api_key = "sk-proj-abcdefghijklmnopqrstuvwxyz0123456789"');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-013');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('CRITICAL');
+  });
+
+  it('detects restricted sk-* token only with assignment context as CRITICAL', () => {
+    const skill = makeSkill('const token = "sk-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_abcd";');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-013');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('CRITICAL');
+  });
+
+  it('detects Slack token as CRITICAL', () => {
+    const skill = makeSkill('SLACK_TOKEN = "xoxb-EXAMPLE-TOKEN-FOR-TESTING-ONLY-ABCDE"');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-013');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('CRITICAL');
+  });
+
+  it('detects AWS access key as CRITICAL', () => {
+    const skill = makeSkill('const aws = "AKIA1234567890ABCDEF";');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-013');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('CRITICAL');
+  });
+
+  it('detects GitHub PAT as CRITICAL', () => {
+    const skill = makeSkill('const gh = "github_pat_11ABCDEFGHIJKLMNOPQRSTUV_1234567890abcdefghijklmnopqrstuvwxyz";');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-013');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('CRITICAL');
+  });
+
+  it('detects high-entropy assignment as HIGH', () => {
+    const skill = makeSkill('const apiKey = "Qw3rTy9LmN8vBc7XzP6aSd5Fg4Hj2Kp1";');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-013');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+  });
+
+  it('detects Authorization Bearer high-entropy token as HIGH', () => {
+    const skill = makeSkill('Authorization: Bearer Qw3rTy9LmN8vBc7XzP6aSd5Fg4Hj2Kp1');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-013');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+  });
+
+  it('detects X-API-Key high-entropy token as HIGH', () => {
+    const skill = makeSkill('X-API-Key: Qw3rTy9LmN8vBc7XzP6aSd5Fg4Hj2Kp1');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-013');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+  });
+
+  it('detects OPENAI_API_KEY assignment with sk-* as CRITICAL', () => {
+    const skill = makeSkill('const OPENAI_API_KEY = "sk-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_abcd";');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-013');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('CRITICAL');
+  });
+
+  it('detects OPENAI_API_KEY key-value with sk-* as CRITICAL', () => {
+    const skill = makeSkill('OPENAI_API_KEY: sk-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_abcd');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-013');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('CRITICAL');
+  });
+
+  it('detects openai_api_key assignment with sk-* as CRITICAL', () => {
+    const skill = makeSkill('openai_api_key = "sk-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_abcd"');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-013');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('CRITICAL');
+  });
+
+  it('detects apikey assignment as HIGH', () => {
+    const skill = makeSkill('const apikey = "Qw3rTy9LmN8vBc7XzP6aSd5Fg4Hj2Kp1";');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-013');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+  });
+
+  it('does not detect high-entropy monkey assignment', () => {
+    const skill = makeSkill('const monkey = "Qw3rTy9LmN8vBc7XzP6aSd5Fg4Hj2Kp1";');
+    const results = codeSafetyChecks.run(skill);
+    expect(results.some((r) => r.id === 'CODE-013')).toBe(false);
+  });
+
+  it('does not detect high-entropy turkey assignment', () => {
+    const skill = makeSkill('const turkey = "Qw3rTy9LmN8vBc7XzP6aSd5Fg4Hj2Kp1";');
+    const results = codeSafetyChecks.run(skill);
+    expect(results.some((r) => r.id === 'CODE-013')).toBe(false);
+  });
+
+  it('does not detect unrestricted sk-* without assignment or auth context', () => {
+    const skill = makeSkill('Example literal token: sk-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_abcd');
+    const results = codeSafetyChecks.run(skill);
+    expect(results.some((r) => r.id === 'CODE-013')).toBe(false);
+  });
+
+  it('does not detect low-entropy token assignment', () => {
+    const skill = makeSkill('const token = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";');
+    const results = codeSafetyChecks.run(skill);
+    expect(results.some((r) => r.id === 'CODE-013')).toBe(false);
+  });
+
+  it('does not detect normal business string', () => {
+    const skill = makeSkill('const message = "project setup completed successfully";');
+    const results = codeSafetyChecks.run(skill);
+    expect(results.some((r) => r.id === 'CODE-013')).toBe(false);
+  });
+});

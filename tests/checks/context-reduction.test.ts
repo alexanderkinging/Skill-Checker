@@ -202,6 +202,19 @@ describe('Code safety code block reduction', () => {
     expect(c006[0].severity).toBe('LOW');
     expect(c006[0].reducedFrom).toBe('MEDIUM');
   });
+
+  it('CODE-013: keeps severity in code block (no reduction)', () => {
+    const skill = makeSkill([
+      '```javascript',
+      'const token = "sk-proj-abcdefghijklmnopqrstuvwxyz0123456789";',
+      '```',
+    ].join('\n'));
+    const results = codeSafetyChecks.run(skill);
+    const c013 = results.filter((r) => r.id === 'CODE-013');
+    expect(c013.length).toBeGreaterThan(0);
+    expect(c013[0].severity).toBe('CRITICAL');
+    expect(c013[0].reducedFrom).toBeUndefined();
+  });
 });
 
 // ===== Regression: CODE-001 eval never reduced =====
