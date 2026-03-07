@@ -13,14 +13,14 @@ installation. The scanner examines:
 - All non-binary files in the skill directory (up to depth 15)
 - Binary files by metadata only (presence, extension, size)
 
-Detection is organized into **6 rule categories** (53 rules total):
+Detection is organized into **6 rule categories** (55 rules total):
 
 | Category | Prefix | Rules | Focus |
 |----------|--------|-------|-------|
 | Structural Validity | STRUCT | 8 | File presence, frontmatter schema, naming |
 | Content Quality | CONT | 7 | Placeholder detection, information density |
 | Injection Detection | INJ | 9 | Prompt injection, Unicode abuse, tag injection |
-| Code Safety | CODE | 13 | Dangerous APIs, credential leakage, obfuscation, encoded payloads |
+| Code Safety | CODE | 15 | Dangerous APIs, reverse shell/exfiltration, credential leakage, obfuscation, encoded payloads |
 | Supply Chain | SUPPLY | 10 | Dependency risks, IOC threat intelligence |
 | Resource Abuse | RES | 6 | Permission escalation, safety bypass attempts |
 
@@ -99,6 +99,8 @@ context (code block, documentation section, etc.).
 | CODE-011 | MEDIUM | Obfuscated variable names | — | CWE-1078 (Inappropriate Source Code Style, partial) | T1027 | Threshold: >= 3 hex-style identifiers |
 | CODE-012 | HIGH | Permission escalation (sudo/chmod) | LLM08 | CWE-269 (Improper Privilege Mgmt) | T1548 (Abuse Elevation Control) | Reduced in documentation/install context |
 | CODE-013 | CRITICAL/HIGH | API key / credential leakage | LLM02 (Sensitive Info Disclosure), LLM08 (Excessive Agency, partial) | CWE-798 (Use of Hard-coded Credentials) | T1552 (Unsecured Credentials) | Provider-specific patterns are CRITICAL; high-entropy assignment/header patterns are HIGH; no context reduction |
+| CODE-014 | CRITICAL | Reverse shell pattern | LLM08 (Excessive Agency), LLM01 (Prompt Injection, partial) | CWE-78 (OS Command Injection) | T1059.004 (Unix Shell) | No context reduction; detects /dev/tcp, nc -e/--exec, and common language one-liners |
+| CODE-015 | CRITICAL/HIGH | Remote pipeline execution / data exfiltration | LLM08 (Excessive Agency), LLM02 (Sensitive Info Disclosure, partial), LLM06 (Sensitive Information Disclosure, partial) | CWE-78 (pipeline exec), CWE-200 (Information Exposure, partial) | T1041 (Exfiltration Over C2 Channel), T1048 (Exfiltration Over Alternative Protocol) | CRITICAL for remote download-and-execute chains (curl\|sh, wget\|bash); HIGH for local file upload patterns (-d @file, --post-file) |
 
 ### E. Supply Chain (SUPPLY)
 
@@ -186,7 +188,7 @@ Findings in certain contexts receive a one-level severity reduction:
 | Documentation/install section | -1 level | Same | CODE-012, SUPPLY-003 |
 
 Rules that **never** receive reduction: CODE-001, CODE-002, CODE-005,
-CODE-009, CODE-010, all INJ-* rules, all RES-* rules, IOC matches
+CODE-009, CODE-010, CODE-013, CODE-014, CODE-015, all INJ-* rules, all RES-* rules, IOC matches
 (SUPPLY-008/009/010).
 
 All reductions preserve an audit trail via `reducedFrom` and
