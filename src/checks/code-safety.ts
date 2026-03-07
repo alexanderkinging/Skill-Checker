@@ -97,6 +97,70 @@ const DYNAMIC_CODE_PATTERNS = [
   /\b__import__\s*\(/,
 ];
 
+/** CODE-013 provider credential patterns (precise matches) */
+const PROVIDER_CREDENTIAL_PATTERNS: Array<{ pattern: RegExp; title: string }> = [
+  {
+    pattern: /\bsk-ant-api03-[A-Za-z0-9_-]{20,}\b/,
+    title: 'Anthropic API key exposure',
+  },
+  {
+    pattern: /\bsk-proj-[A-Za-z0-9_-]{20,}\b/,
+    title: 'OpenAI project key exposure',
+  },
+  {
+    pattern: /\bxox[bps]-[A-Za-z0-9-]{20,}\b/,
+    title: 'Slack token exposure',
+  },
+  {
+    pattern: /\bAKIA[0-9A-Z]{16}\b/,
+    title: 'AWS access key exposure',
+  },
+  {
+    pattern: /\bgh[op]_[A-Za-z0-9]{20,}\b/,
+    title: 'GitHub token exposure',
+  },
+  {
+    pattern: /\bgithub_pat_[A-Za-z0-9_]{20,}\b/,
+    title: 'GitHub fine-grained token exposure',
+  },
+];
+
+/** CODE-013 restricted sk-* fallback */
+const OPENAI_SK_FALLBACK_PATTERN = /\bsk-[A-Za-z0-9_-]{20,}\b/;
+
+const CREDENTIAL_NAME_TOKENS = new Set([
+  'api',
+  'key',
+  'token',
+  'secret',
+  'password',
+  'credential',
+]);
+
+const CREDENTIAL_COMPOUND_NAMES = new Set([
+  'apikey',
+  'apitoken',
+  'accesskey',
+  'accesstoken',
+  'secretkey',
+  'secrettoken',
+]);
+
+const CREDENTIAL_EQUALS_PATTERN =
+  /\b([A-Za-z0-9_-]+)\b\s*=\s*["'`]?([A-Za-z0-9._~+/=\-]{20,})/i;
+
+const CREDENTIAL_KEY_VALUE_PATTERN =
+  /^\s*["'`]?([A-Za-z0-9_-]+)["'`]?\s*:\s*["'`]?([A-Za-z0-9._~+/=\-]{20,})/i;
+
+const AUTHORIZATION_BEARER_PATTERN =
+  /\bAuthorization\b\s*:\s*Bearer\s+([A-Za-z0-9._~+/=\-]{20,})/i;
+
+const X_API_KEY_PATTERN =
+  /\bx-api-key\b\s*:\s*([A-Za-z0-9._~+/=\-]{20,})/i;
+
+const CREDENTIAL_MIN_LENGTH = 20;
+const CREDENTIAL_MIN_ENTROPY = 4.5;
+
 /** Permission escalation */
 const PERMISSION_PATTERNS = [
   /\bchmod\s+[+0-9]/,
@@ -190,6 +254,21 @@ export const codeSafetyChecks: CheckModule = {
           codeBlockCtx: cbCtx,
         });
 
+        // CODE-013: API key/credential leakage — no code block reduction
+        const credentialLeak = detectCredentialLeak(line);
+        if (credentialLeak) {
+          results.push({
+            id: 'CODE-013',
+            category: 'CODE',
+            severity: credentialLeak.severity,
+            title: credentialLeak.title,
+            message: `At ${loc}: ${line.trim().slice(0, 120)}`,
+            line: lineNum,
+            snippet: line.trim().slice(0, 120),
+            source,
+          });
+        }
+
         // CODE-010: dynamic code generation — no code block reduction
         checkPatterns(results, line, DYNAMIC_CODE_PATTERNS, {
           id: 'CODE-010',
@@ -267,6 +346,124 @@ function checkPatterns(
       return; // one match per line per rule
     }
   }
+}
+
+interface CredentialLeakMatch {
+  severity: Severity;
+  title: string;
+}
+
+function detectCredentialLeak(line: string): CredentialLeakMatch | null {
+  for (const provider of PROVIDER_CREDENTIAL_PATTERNS) {
+    if (provider.pattern.test(line)) {
+      return {
+        severity: 'CRITICAL',
+        title: provider.title,
+      };
+    }
+  }
+
+  if (
+    OPENAI_SK_FALLBACK_PATTERN.test(line) &&
+    isCredentialAssignmentContext(line)
+  ) {
+    return {
+      severity: 'CRITICAL',
+      title: 'OpenAI-style API key exposure',
+    };
+  }
+
+  const assignmentMatch = line.match(CREDENTIAL_EQUALS_PATTERN);
+  if (
+    assignmentMatch?.[1] &&
+    assignmentMatch[2] &&
+    hasCredentialNameToken(assignmentMatch[1]) &&
+    isHighEntropyCredential(assignmentMatch[2])
+  ) {
+    return {
+      severity: 'HIGH',
+      title: 'High-entropy credential assignment',
+    };
+  }
+
+  const keyValueMatch = line.match(CREDENTIAL_KEY_VALUE_PATTERN);
+  if (
+    keyValueMatch?.[1] &&
+    keyValueMatch[2] &&
+    hasCredentialNameToken(keyValueMatch[1]) &&
+    isHighEntropyCredential(keyValueMatch[2])
+  ) {
+    return {
+      severity: 'HIGH',
+      title: 'High-entropy credential assignment',
+    };
+  }
+
+  const bearerMatch = line.match(AUTHORIZATION_BEARER_PATTERN);
+  if (bearerMatch?.[1] && isHighEntropyCredential(bearerMatch[1])) {
+    return {
+      severity: 'HIGH',
+      title: 'Authorization bearer credential exposure',
+    };
+  }
+
+  const xApiKeyMatch = line.match(X_API_KEY_PATTERN);
+  if (xApiKeyMatch?.[1] && isHighEntropyCredential(xApiKeyMatch[1])) {
+    return {
+      severity: 'HIGH',
+      title: 'X-API-Key credential exposure',
+    };
+  }
+
+  return null;
+}
+
+function isCredentialAssignmentContext(line: string): boolean {
+  if (/\bAuthorization\b\s*:\s*Bearer\s+sk-/i.test(line)) {
+    return true;
+  }
+
+  if (/\bx-api-key\b\s*:\s*sk-/i.test(line)) {
+    return true;
+  }
+
+  const equalsMatch = line.match(CREDENTIAL_EQUALS_PATTERN);
+  if (equalsMatch?.[1] && equalsMatch[2]) {
+    return hasCredentialNameToken(equalsMatch[1]) && equalsMatch[2].startsWith('sk-');
+  }
+
+  const keyValueMatch = line.match(CREDENTIAL_KEY_VALUE_PATTERN);
+  if (keyValueMatch?.[1] && keyValueMatch[2]) {
+    return hasCredentialNameToken(keyValueMatch[1]) && keyValueMatch[2].startsWith('sk-');
+  }
+
+  return false;
+}
+
+function hasCredentialNameToken(name: string): boolean {
+  const normalized = name
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
+    .replace(/([A-Za-z])([0-9])/g, '$1_$2')
+    .replace(/([0-9])([A-Za-z])/g, '$1_$2')
+    .toLowerCase();
+
+  const tokens = normalized
+    .split(/[_-]+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+  if (tokens.some((token) => CREDENTIAL_NAME_TOKENS.has(token))) {
+    return true;
+  }
+
+  return tokens.length === 1 && CREDENTIAL_COMPOUND_NAMES.has(tokens[0]);
+}
+
+function isHighEntropyCredential(value: string): boolean {
+  if (value.length < CREDENTIAL_MIN_LENGTH) {
+    return false;
+  }
+  return shannonEntropy(value) > CREDENTIAL_MIN_ENTROPY;
 }
 
 function getTextSources(
