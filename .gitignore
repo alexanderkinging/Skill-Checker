@@ -1,6 +1,8 @@
 node_modules/
 dist/
 coverage/
+docs/plans/
+docs/PUBLISHING.md
 *.tsbuildinfo
 .claude/
 .project/
