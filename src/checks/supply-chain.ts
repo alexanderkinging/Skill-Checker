@@ -121,10 +121,11 @@ export const supplyChainChecks: CheckModule = {
 
       // SUPPLY-003: npm/pip install unknown packages
       // Skip when in documentation context (installation guides / prerequisites)
+      // Documentation context only applies to SKILL.md, not companion scripts
       if (NPM_INSTALL_PATTERN.test(line) || PIP_INSTALL_PATTERN.test(line)) {
         const allLines = getAllLines(skill);
         const globalIdx = findGlobalLineIndex(allLines, source, lineNum);
-        const isDoc = globalIdx >= 0 && isInDocumentationContext(
+        const isDoc = source === 'SKILL.md' && globalIdx >= 0 && isInDocumentationContext(
           allLines.map((l) => l.line),
           globalIdx
         );
@@ -139,7 +140,8 @@ export const supplyChainChecks: CheckModule = {
           let msgSuffix = '';
           if (inCodeBlock) {
             // Check if also under a documentation header (double context)
-            const isNearDoc = globalIdx >= 0 && isNearDocumentationHeader(
+            // Only applies to SKILL.md (script comments must not match)
+            const isNearDoc = source === 'SKILL.md' && globalIdx >= 0 && isNearDocumentationHeader(
               allLines.map((l) => l.line),
               globalIdx
             );
@@ -171,10 +173,11 @@ export const supplyChainChecks: CheckModule = {
 
       // SUPPLY-006: git clone non-standard source
       // Skip when in documentation context (installation guides / prerequisites)
+      // Documentation context only applies to SKILL.md, not companion scripts
       if (GIT_CLONE_PATTERN.test(line)) {
         const allLines = getAllLines(skill);
         const globalIdx = findGlobalLineIndex(allLines, source, lineNum);
-        const isDoc = globalIdx >= 0 && isInDocumentationContext(
+        const isDoc = source === 'SKILL.md' && globalIdx >= 0 && isInDocumentationContext(
           allLines.map((l) => l.line),
           globalIdx
         );

