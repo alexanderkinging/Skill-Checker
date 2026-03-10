@@ -98,28 +98,6 @@ The hook is fail-closed — if the scanner is unavailable, JSON parsing fails, o
 - `jq` must be installed for JSON parsing
 - `skill-checker` must be globally installed or available via `npx`
 
-## Dependency Security Maintenance
-
-Latest dependency audit follow-up (2026-03-07):
-
-- Production dependency risk remains unaffected (`npm audit --omit=dev`: **0 vulnerabilities**).
-- Current `npm audit` still reports **5 moderate** findings in dev tooling chain (`vitest` → `vite` → `esbuild`).
-- Upgrade to `vitest@4.0.18` is **temporarily deferred** because it requires Node `^20 || ^22 || >=24`, while this project currently supports Node `>=18`.
-- Scope of impact is limited to development/test tooling and does not affect runtime package dependencies.
-- Auditable risk acceptance record: [docs/RISK_ACCEPTANCE_DEVDEPS.md](docs/RISK_ACCEPTANCE_DEVDEPS.md).
-
-Verification commands used in this review cycle:
-
-```bash
-npm run lint
-npm test
-npm run build
-npm audit --omit=dev
-npm audit
-```
-
-Next review date: **2026-04-04**.
-
 ## Scoring
 
 Base score starts at **100**. Each finding deducts points by severity:
