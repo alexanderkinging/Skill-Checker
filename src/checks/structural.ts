@@ -18,11 +18,17 @@ import type { CheckModule, CheckResult, ParsedSkill } from '../types.js';
 
 const HYPHEN_CASE_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 const MAX_NAME_LENGTH = 64;
-const EXECUTABLE_EXTENSIONS = new Set([
-  '.exe', '.bat', '.cmd', '.sh', '.bash', '.ps1', '.com', '.msi',
+/** Script files: common in legitimate skills, content scanned by CODE/SUPPLY rules */
+const SCRIPT_EXTENSIONS = new Set([
+  '.sh', '.bash', '.ps1', '.bat', '.cmd',
 ]);
+/** Binary executables: rarely legitimate in skills */
 const BINARY_EXTENSIONS = new Set([
   '.exe', '.dll', '.so', '.dylib', '.bin', '.wasm', '.class', '.pyc',
+]);
+/** Installer packages */
+const INSTALLER_EXTENSIONS = new Set([
+  '.com', '.msi',
 ]);
 
 export const structuralChecks: CheckModule = {
@@ -89,16 +95,25 @@ export const structuralChecks: CheckModule = {
       });
     }
 
-    // STRUCT-006: Unexpected files (binary/executable)
+    // STRUCT-006: Unexpected files (binary/executable/script)
     for (const file of skill.files) {
       const ext = file.extension.toLowerCase();
-      if (BINARY_EXTENSIONS.has(ext) || EXECUTABLE_EXTENSIONS.has(ext)) {
+      if (BINARY_EXTENSIONS.has(ext) || INSTALLER_EXTENSIONS.has(ext)) {
         results.push({
           id: 'STRUCT-006',
           category: 'STRUCT',
           severity: 'HIGH',
           title: 'Unexpected binary/executable file',
           message: `Found unexpected file: ${file.path} (${ext})`,
+          source: file.path,
+        });
+      } else if (SCRIPT_EXTENSIONS.has(ext)) {
+        results.push({
+          id: 'STRUCT-006',
+          category: 'STRUCT',
+          severity: 'LOW',
+          title: 'Script file present',
+          message: `Found script file: ${file.path} (${ext}). Content is scanned separately.`,
           source: file.path,
         });
       }

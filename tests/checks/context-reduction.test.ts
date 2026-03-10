@@ -231,6 +231,126 @@ describe('Code safety code block reduction', () => {
   });
 });
 
+// ===== SUPPLY-006 code block + documentation reduction =====
+
+describe('SUPPLY-006 context awareness', () => {
+  it('reduces severity when git clone is in code block', () => {
+    const skill = makeSkill([
+      '```bash',
+      'git clone https://github.com/user/repo.git',
+      '```',
+    ].join('\n'));
+    const results = supplyChainChecks.run(skill);
+    const s006 = results.filter((r) => r.id === 'SUPPLY-006');
+    expect(s006.length).toBeGreaterThan(0);
+    expect(s006[0].severity).toBe('LOW');
+    expect(s006[0].reducedFrom).toBe('MEDIUM');
+    expect(s006[0].message).toContain('[reduced: in code block]');
+  });
+
+  it('skips git clone in documentation context', () => {
+    const skill = makeSkill([
+      '## Installation',
+      '',
+      'git clone https://github.com/user/repo.git',
+    ].join('\n'));
+    const results = supplyChainChecks.run(skill);
+    const s006 = results.filter((r) => r.id === 'SUPPLY-006');
+    expect(s006.length).toBe(0);
+  });
+
+  it('keeps MEDIUM when git clone is outside code block and not in docs', () => {
+    const skill = makeSkill('Run git clone https://github.com/user/repo.git to fetch code.');
+    const results = supplyChainChecks.run(skill);
+    const s006 = results.filter((r) => r.id === 'SUPPLY-006');
+    expect(s006.length).toBeGreaterThan(0);
+    expect(s006[0].severity).toBe('MEDIUM');
+    expect(s006[0].reducedFrom).toBeUndefined();
+  });
+});
+
+// ===== SUPPLY-003 double context reduction =====
+
+describe('SUPPLY-003 double context reduction', () => {
+  it('reduces to LOW when in code block AND under install header', () => {
+    const skill = makeSkill([
+      '## Getting Started',
+      '',
+      '```bash',
+      'npm install -g my-tool',
+      '```',
+    ].join('\n'));
+    const results = supplyChainChecks.run(skill);
+    const s003 = results.filter((r) => r.id === 'SUPPLY-003');
+    expect(s003.length).toBeGreaterThan(0);
+    expect(s003[0].severity).toBe('LOW');
+    expect(s003[0].reducedFrom).toBe('HIGH');
+    expect(s003[0].message).toContain('[reduced: in code block within documentation]');
+  });
+
+  it('stays MEDIUM when in code block but NOT under install header', () => {
+    const skill = makeSkill([
+      '## Advanced Usage',
+      '',
+      '```bash',
+      'npm install some-pkg',
+      '```',
+    ].join('\n'));
+    const results = supplyChainChecks.run(skill);
+    const s003 = results.filter((r) => r.id === 'SUPPLY-003');
+    expect(s003.length).toBeGreaterThan(0);
+    expect(s003[0].severity).toBe('MEDIUM');
+    expect(s003[0].reducedFrom).toBe('HIGH');
+  });
+
+  it('still skipped entirely when in documentation context without code block', () => {
+    const skill = makeSkill([
+      '## Prerequisites',
+      '',
+      '- **Node.js**: npm install -g typescript',
+    ].join('\n'));
+    const results = supplyChainChecks.run(skill);
+    const s003 = results.filter((r) => r.id === 'SUPPLY-003');
+    expect(s003.length).toBe(0);
+  });
+});
+
+// ===== Regression: script comment must not suppress SUPPLY-003/006 =====
+
+describe('Script comment must not be treated as documentation context', () => {
+  it('SUPPLY-003 still fires when script has install comment', () => {
+    const skill = makeSkill('# Minimal skill body for testing purposes.');
+    skill.files.push({
+      path: 'setup.sh',
+      name: 'setup.sh',
+      extension: '.sh',
+      sizeBytes: 100,
+      isBinary: false,
+      content: '#!/bin/bash\n# Install required tools\nnpm install evil-pkg',
+    });
+    const results = supplyChainChecks.run(skill);
+    const s003 = results.filter((r) => r.id === 'SUPPLY-003' && r.source === 'setup.sh');
+    expect(s003.some((r) => r.id === 'SUPPLY-003')).toBe(true);
+    expect(s003[0].severity).toBe('HIGH');
+  });
+
+  it('SUPPLY-006 still fires when script has installation comment', () => {
+    const skill = makeSkill('# Minimal skill body for testing purposes.');
+    skill.files.push({
+      path: 'deploy.sh',
+      name: 'deploy.sh',
+      extension: '.sh',
+      sizeBytes: 100,
+      isBinary: false,
+      content: '#!/bin/bash\n# Installation guide\ngit clone https://github.com/evil/repo.git',
+    });
+    const results = supplyChainChecks.run(skill);
+    const s006 = results.filter((r) => r.id === 'SUPPLY-006' && r.source === 'deploy.sh');
+    expect(s006.some((r) => r.id === 'SUPPLY-006')).toBe(true);
+    expect(s006[0].severity).toBe('MEDIUM');
+  });
+});
+
 // ===== Regression: CODE-001 eval never reduced =====
 
 describe('CODE-001 regression: eval never reduced in code block', () => {

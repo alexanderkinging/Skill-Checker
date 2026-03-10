@@ -20,6 +20,7 @@ import {
   isNamespaceOrSchemaURI,
   isInNetworkRequestContext,
   isInDocumentationContext,
+  isNearDocumentationHeader,
   isInCodeBlock,
   isLicenseFile,
   isLocalhostURL,
@@ -120,24 +121,41 @@ export const supplyChainChecks: CheckModule = {
 
       // SUPPLY-003: npm/pip install unknown packages
       // Skip when in documentation context (installation guides / prerequisites)
+      // Documentation context only applies to SKILL.md, not companion scripts
       if (NPM_INSTALL_PATTERN.test(line) || PIP_INSTALL_PATTERN.test(line)) {
         const allLines = getAllLines(skill);
         const globalIdx = findGlobalLineIndex(allLines, source, lineNum);
-        const isDoc = globalIdx >= 0 && isInDocumentationContext(
+        const isDoc = source === 'SKILL.md' && globalIdx >= 0 && isInDocumentationContext(
           allLines.map((l) => l.line),
           globalIdx
         );
-        if (!isDoc) {
+        const srcLines = getLinesForSource(skill, source);
+        const localIdx = getLocalIndex(source, lineNum, skill.bodyStartLine);
+        const inCodeBlock = localIdx >= 0 && isInCodeBlock(srcLines, localIdx);
+        if (isDoc && !inCodeBlock) {
+          // Documentation context without code block: skip entirely
+        } else {
           let severity: Severity = 'HIGH';
           let reducedFrom: Severity | undefined;
           let msgSuffix = '';
-          const srcLines = getLinesForSource(skill, source);
-          const localIdx = getLocalIndex(source, lineNum, skill.bodyStartLine);
-          if (localIdx >= 0 && isInCodeBlock(srcLines, localIdx)) {
-            const r = reduceSeverity(severity, 'in code block');
-            severity = r.severity;
-            reducedFrom = r.reducedFrom;
-            msgSuffix = ` ${r.annotation}`;
+          if (inCodeBlock) {
+            // Check if also under a documentation header (double context)
+            // Only applies to SKILL.md (script comments must not match)
+            const isNearDoc = source === 'SKILL.md' && globalIdx >= 0 && isNearDocumentationHeader(
+              allLines.map((l) => l.line),
+              globalIdx
+            );
+            if (isNearDoc) {
+              // Double context: code block + documentation header → LOW
+              severity = 'LOW';
+              reducedFrom = 'HIGH';
+              msgSuffix = ' [reduced: in code block within documentation]';
+            } else {
+              const r = reduceSeverity(severity, 'in code block');
+              severity = r.severity;
+              reducedFrom = r.reducedFrom;
+              msgSuffix = ` ${r.annotation}`;
+            }
           }
           results.push({
             id: 'SUPPLY-003',
@@ -154,17 +172,39 @@ export const supplyChainChecks: CheckModule = {
       }
 
       // SUPPLY-006: git clone non-standard source
+      // Skip when in documentation context (installation guides / prerequisites)
+      // Documentation context only applies to SKILL.md, not companion scripts
       if (GIT_CLONE_PATTERN.test(line)) {
-        results.push({
-          id: 'SUPPLY-006',
-          category: 'SUPPLY',
-          severity: 'MEDIUM',
-          title: 'git clone command',
-          message: `${source}:${lineNum}: Clones a git repository. Verify the source.`,
-          line: lineNum,
-          snippet: line.trim().slice(0, 120),
-          source,
-        });
+        const allLines = getAllLines(skill);
+        const globalIdx = findGlobalLineIndex(allLines, source, lineNum);
+        const isDoc = source === 'SKILL.md' && globalIdx >= 0 && isInDocumentationContext(
+          allLines.map((l) => l.line),
+          globalIdx
+        );
+        if (!isDoc) {
+          let severity: Severity = 'MEDIUM';
+          let reducedFrom: Severity | undefined;
+          let msgSuffix = '';
+          const srcLines = getLinesForSource(skill, source);
+          const localIdx = getLocalIndex(source, lineNum, skill.bodyStartLine);
+          if (localIdx >= 0 && isInCodeBlock(srcLines, localIdx)) {
+            const r = reduceSeverity(severity, 'in code block');
+            severity = r.severity;
+            reducedFrom = r.reducedFrom;
+            msgSuffix = ` ${r.annotation}`;
+          }
+          results.push({
+            id: 'SUPPLY-006',
+            category: 'SUPPLY',
+            severity,
+            title: 'git clone command',
+            message: `${source}:${lineNum}: Clones a git repository. Verify the source.${msgSuffix}`,
+            line: lineNum,
+            snippet: line.trim().slice(0, 120),
+            source,
+            reducedFrom,
+          });
+        }
       }
 
       // URL-based checks
