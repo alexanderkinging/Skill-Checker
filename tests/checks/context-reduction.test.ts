@@ -231,6 +231,44 @@ describe('Code safety code block reduction', () => {
   });
 });
 
+// ===== SUPPLY-006 code block + documentation reduction =====
+
+describe('SUPPLY-006 context awareness', () => {
+  it('reduces severity when git clone is in code block', () => {
+    const skill = makeSkill([
+      '```bash',
+      'git clone https://github.com/user/repo.git',
+      '```',
+    ].join('\n'));
+    const results = supplyChainChecks.run(skill);
+    const s006 = results.filter((r) => r.id === 'SUPPLY-006');
+    expect(s006.length).toBeGreaterThan(0);
+    expect(s006[0].severity).toBe('LOW');
+    expect(s006[0].reducedFrom).toBe('MEDIUM');
+    expect(s006[0].message).toContain('[reduced: in code block]');
+  });
+
+  it('skips git clone in documentation context', () => {
+    const skill = makeSkill([
+      '## Installation',
+      '',
+      'git clone https://github.com/user/repo.git',
+    ].join('\n'));
+    const results = supplyChainChecks.run(skill);
+    const s006 = results.filter((r) => r.id === 'SUPPLY-006');
+    expect(s006.length).toBe(0);
+  });
+
+  it('keeps MEDIUM when git clone is outside code block and not in docs', () => {
+    const skill = makeSkill('Run git clone https://github.com/user/repo.git to fetch code.');
+    const results = supplyChainChecks.run(skill);
+    const s006 = results.filter((r) => r.id === 'SUPPLY-006');
+    expect(s006.length).toBeGreaterThan(0);
+    expect(s006[0].severity).toBe('MEDIUM');
+    expect(s006[0].reducedFrom).toBeUndefined();
+  });
+});
+
 // ===== Regression: CODE-001 eval never reduced =====
 
 describe('CODE-001 regression: eval never reduced in code block', () => {

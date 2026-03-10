@@ -154,17 +154,38 @@ export const supplyChainChecks: CheckModule = {
       }
 
       // SUPPLY-006: git clone non-standard source
+      // Skip when in documentation context (installation guides / prerequisites)
       if (GIT_CLONE_PATTERN.test(line)) {
-        results.push({
-          id: 'SUPPLY-006',
-          category: 'SUPPLY',
-          severity: 'MEDIUM',
-          title: 'git clone command',
-          message: `${source}:${lineNum}: Clones a git repository. Verify the source.`,
-          line: lineNum,
-          snippet: line.trim().slice(0, 120),
-          source,
-        });
+        const allLines = getAllLines(skill);
+        const globalIdx = findGlobalLineIndex(allLines, source, lineNum);
+        const isDoc = globalIdx >= 0 && isInDocumentationContext(
+          allLines.map((l) => l.line),
+          globalIdx
+        );
+        if (!isDoc) {
+          let severity: Severity = 'MEDIUM';
+          let reducedFrom: Severity | undefined;
+          let msgSuffix = '';
+          const srcLines = getLinesForSource(skill, source);
+          const localIdx = getLocalIndex(source, lineNum, skill.bodyStartLine);
+          if (localIdx >= 0 && isInCodeBlock(srcLines, localIdx)) {
+            const r = reduceSeverity(severity, 'in code block');
+            severity = r.severity;
+            reducedFrom = r.reducedFrom;
+            msgSuffix = ` ${r.annotation}`;
+          }
+          results.push({
+            id: 'SUPPLY-006',
+            category: 'SUPPLY',
+            severity,
+            title: 'git clone command',
+            message: `${source}:${lineNum}: Clones a git repository. Verify the source.${msgSuffix}`,
+            line: lineNum,
+            snippet: line.trim().slice(0, 120),
+            source,
+            reducedFrom,
+          });
+        }
       }
 
       // URL-based checks
