@@ -15,6 +15,8 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import { createRequire } from 'node:module';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { Command } from 'commander';
 import { scanSkillDirectory } from './scanner.js';
 import { formatTerminalReport } from './reporter/terminal.js';
@@ -55,6 +57,15 @@ program
       }
       // Load config
       const config = loadConfig(path, opts.config);
+
+      // Warn if target directory has no SKILL.md
+      if (!existsSync(join(path, 'SKILL.md'))) {
+        console.error(
+          'Warning: No SKILL.md found in the specified directory. ' +
+          'This tool is designed to scan skill directories. ' +
+          'Results may contain noise. See: skill-checker scan --help'
+        );
+      }
 
       // Override policy from CLI
       if (opts.policy) {
