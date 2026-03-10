@@ -121,4 +121,35 @@ describe('STRUCT-006 script vs binary severity', () => {
     expect(s006.length).toBe(1);
     expect(s006[0].severity).toBe('HIGH');
   });
+
+  it('.bat file produces LOW severity (script)', () => {
+    const skill = makeSkillWithFiles([{ path: 'run.bat', ext: '.bat' }]);
+    const results = structuralChecks.run(skill);
+    const s006 = results.filter((r) => r.id === 'STRUCT-006');
+    expect(s006.length).toBe(1);
+    expect(s006[0].severity).toBe('LOW');
+  });
+
+  it('.com file produces HIGH severity (installer)', () => {
+    const skill = makeSkillWithFiles([{ path: 'setup.com', ext: '.com' }]);
+    const results = structuralChecks.run(skill);
+    const s006 = results.filter((r) => r.id === 'STRUCT-006');
+    expect(s006.length).toBe(1);
+    expect(s006[0].severity).toBe('HIGH');
+  });
+
+  it('.msi file produces HIGH severity (installer)', () => {
+    const skill = makeSkillWithFiles([{ path: 'setup.msi', ext: '.msi' }]);
+    const results = structuralChecks.run(skill);
+    const s006 = results.filter((r) => r.id === 'STRUCT-006');
+    expect(s006.length).toBe(1);
+    expect(s006[0].severity).toBe('HIGH');
+  });
+
+  it('.ts file does not trigger STRUCT-006', () => {
+    const skill = makeSkillWithFiles([{ path: 'helper.ts', ext: '.ts' }]);
+    const results = structuralChecks.run(skill);
+    const s006 = results.filter((r) => r.id === 'STRUCT-006');
+    expect(s006.length).toBe(0);
+  });
 });
