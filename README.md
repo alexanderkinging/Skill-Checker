@@ -59,6 +59,18 @@ skill-checker scan ./my-skill --policy strict
 
 Exit code `0` = no critical issues, `1` = critical issues detected.
 
+### Recommended Scan Path
+
+Skill Checker is designed to scan individual skill directories containing a `SKILL.md` file at the root. Running `scan .` from a project root or non-skill directory will produce noisy results (e.g. STRUCT-001 for missing SKILL.md).
+
+```bash
+# Correct: point to a skill directory
+skill-checker scan ./path/to/my-skill/
+
+# Avoid: scanning project root or arbitrary directories
+skill-checker scan .
+```
+
 ## Hook Integration
 
 Skill Checker can run automatically as a Claude Code [PreToolUse hook](https://docs.anthropic.com/en/docs/claude-code/hooks), intercepting skill file writes before they happen.

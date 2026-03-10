@@ -154,3 +154,13 @@ SUPPLY-006 在文档上下文中直接跳过（不生成发现），在代码块
 - \> 5MB: 头尾窗口扫描（各 512KB），中间用 `/* ... window gap ... */` 连接
 - 所有大文件生成 warning，触发 STRUCT-008
 - 哈希计算始终流式（64KB chunks）
+
+## 扫描目标约束
+
+Scanner 期望目标目录根部包含 `SKILL.md` 文件。当目标目录缺少 `SKILL.md` 时：
+
+- Parser 返回空结构体（body 为空、frontmatter 缺失）
+- STRUCT-001 触发 CRITICAL（fail-closed 设计）
+- 非 skill 目录的扫描结果包含大量噪音，不具备参考价值
+
+推荐用法：`skill-checker scan ./path/to/skill-directory/`
