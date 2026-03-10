@@ -125,6 +125,24 @@ export function isInDocumentationContext(
 }
 
 /**
+ * Check if a line is near a documentation/guide section header.
+ * Similar to isInDocumentationContext but only checks headers, not list patterns.
+ * Used for double-context reduction (code block + doc header).
+ */
+export function isNearDocumentationHeader(
+  lines: string[],
+  lineIndex: number
+): boolean {
+  for (let i = lineIndex; i >= Math.max(0, lineIndex - 15); i--) {
+    const l = lines[i];
+    if (/^#{1,4}\s+.*(install|setup|prerequisite|requirement|depend|getting\s+started|quickstart)/i.test(l)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Check if a file path is a license/legal file (content is not executable instruction).
  */
 export function isLicenseFile(filePath: string): boolean {

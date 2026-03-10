@@ -269,6 +269,52 @@ describe('SUPPLY-006 context awareness', () => {
   });
 });
 
+// ===== SUPPLY-003 double context reduction =====
+
+describe('SUPPLY-003 double context reduction', () => {
+  it('reduces to LOW when in code block AND under install header', () => {
+    const skill = makeSkill([
+      '## Getting Started',
+      '',
+      '```bash',
+      'npm install -g my-tool',
+      '```',
+    ].join('\n'));
+    const results = supplyChainChecks.run(skill);
+    const s003 = results.filter((r) => r.id === 'SUPPLY-003');
+    expect(s003.length).toBeGreaterThan(0);
+    expect(s003[0].severity).toBe('LOW');
+    expect(s003[0].reducedFrom).toBe('HIGH');
+    expect(s003[0].message).toContain('[reduced: in code block within documentation]');
+  });
+
+  it('stays MEDIUM when in code block but NOT under install header', () => {
+    const skill = makeSkill([
+      '## Advanced Usage',
+      '',
+      '```bash',
+      'npm install some-pkg',
+      '```',
+    ].join('\n'));
+    const results = supplyChainChecks.run(skill);
+    const s003 = results.filter((r) => r.id === 'SUPPLY-003');
+    expect(s003.length).toBeGreaterThan(0);
+    expect(s003[0].severity).toBe('MEDIUM');
+    expect(s003[0].reducedFrom).toBe('HIGH');
+  });
+
+  it('still skipped entirely when in documentation context without code block', () => {
+    const skill = makeSkill([
+      '## Prerequisites',
+      '',
+      '- **Node.js**: npm install -g typescript',
+    ].join('\n'));
+    const results = supplyChainChecks.run(skill);
+    const s003 = results.filter((r) => r.id === 'SUPPLY-003');
+    expect(s003.length).toBe(0);
+  });
+});
+
 // ===== Regression: CODE-001 eval never reduced =====
 
 describe('CODE-001 regression: eval never reduced in code block', () => {
