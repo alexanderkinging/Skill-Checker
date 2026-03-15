@@ -158,6 +158,86 @@ export function isLocalhostURL(url: string): boolean {
   return /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])/i.test(url);
 }
 
+/**
+ * Check if a line is in an educational/descriptive context.
+ * Used to reduce severity for content patterns that appear in
+ * teaching/reference material rather than actual promotional content.
+ */
+export function isInEducationalContext(
+  lines: string[],
+  lineIndex: number
+): boolean {
+  const line = lines[lineIndex];
+
+  // Line itself is a markdown heading (organizational/educational)
+  if (/^#{1,6}\s+/.test(line)) return true;
+
+  // Line has label: value structure (descriptive/definitional)
+  // e.g., "- Discount type: One-time, recurring"
+  // e.g., "**Annual discount**: 15-25% for annual prepay"
+  if (/^\s*[-*]?\s*(\*\*[^*]+\*\*\s*:|[A-Z][^:]{0,40}:)\s/.test(line))
+    return true;
+
+  // Nearby header contains educational/guide keywords
+  for (let i = lineIndex; i >= Math.max(0, lineIndex - 15); i--) {
+    if (
+      /^#{1,4}\s+.*(strateg|guide|framework|structure|model|overview|comparison|concept|principle|example|tutorial|reference|approach|method)/i.test(
+        lines[i]
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+const PROMOTIONAL_INTENT_PATTERNS = [
+  /\d+%\s*off\b/i,
+  /\blimited\s+time\b/i,
+  /\bact\s+now\b/i,
+  /\bhurry\b/i,
+  /\btoday\s+only\b/i,
+  /\bdon'?t\s+miss\b/i,
+  /\bsave\s+\d+%/i,
+  /\bexclusive\s+(offer|deal)\b/i,
+  /\bsign\s+up\s+(now|today)\b/i,
+  /\bget\s+started\b/i,
+  /\bclaim\s+(now|yours?)\b/i,
+  /\boffer\s+ends?\b/i,
+  /\blast\s+chance\b/i,
+  /\bonly\s+\d+\s+left\b/i,
+  /\bends?\s+in\s+\d+/i,
+  /\bstart\s+(your\s+)?free\s+trial\b/i,
+];
+
+/**
+ * Check if a line contains promotional urgency/CTA signals.
+ * Used to override educational context reduction when content
+ * is promotional disguised as educational formatting.
+ */
+export function hasPromotionalIntent(line: string): boolean {
+  return PROMOTIONAL_INTENT_PATTERNS.some((p) => p.test(line));
+}
+
+/**
+ * Check if any line within a ±window range contains promotional intent.
+ * Does NOT exclude code block lines — fail-closed: urgency near a
+ * soft pattern should block reduction regardless of fence boundaries.
+ */
+export function hasPromotionalIntentNearby(
+  lines: string[],
+  lineIndex: number,
+  window = 3
+): boolean {
+  const start = Math.max(0, lineIndex - window);
+  const end = Math.min(lines.length - 1, lineIndex + window);
+  for (let i = start; i <= end; i++) {
+    if (hasPromotionalIntent(lines[i])) return true;
+  }
+  return false;
+}
+
 function parseURLPath(
   url: string
 ): { path: string; hasQuery: boolean; hasFileExtension: boolean } | null {

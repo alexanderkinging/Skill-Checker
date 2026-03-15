@@ -15,7 +15,8 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 import type { CheckModule, CheckResult, ParsedSkill } from '../types.js';
-import { isInCodeBlock } from '../utils/context.js';
+import { reduceSeverity } from '../types.js';
+import { isInCodeBlock, isInEducationalContext, hasPromotionalIntentNearby } from '../utils/context.js';
 
 /** Patterns that are always placeholder indicators regardless of context */
 const STRICT_PLACEHOLDER_PATTERNS = [
@@ -44,16 +45,21 @@ const LOREM_PATTERNS = [
   /consectetur\s+adipiscing/i,
 ];
 
-const AD_PATTERNS = [
+/** Strong ad patterns: direct call-to-action, always HIGH */
+const STRONG_AD_PATTERNS = [
   /\bbuy\s+now\b/i,
-  /\bfree\s+trial\b/i,
+  /\bclick\s+here\s+to\s+(buy|subscribe|download)/i,
+  /\buse\s+code\b.*\b\d+%?\s*off\b/i,
+];
+
+/** Soft ad patterns: context-sensitive, may reduce to MEDIUM in educational content */
+const SOFT_AD_PATTERNS = [
   /\bdiscount\b/i,
+  /\bfree\s+trial\b/i,
   /\bpromo\s*code\b/i,
   /\bsubscribe\s+(to|now)\b/i,
   /\bsponsored\s+by\b/i,
   /\baffiliate\s+link\b/i,
-  /\bclick\s+here\s+to\s+(buy|subscribe|download)/i,
-  /\buse\s+code\b.*\b\d+%?\s*off\b/i,
   /\bcheck\s+out\s+my\b/i,
 ];
 
@@ -143,7 +149,10 @@ export const contentChecks: CheckModule = {
     // CONT-005: Ad/promotional content
     for (let i = 0; i < skill.bodyLines.length; i++) {
       const line = skill.bodyLines[i];
-      for (const pattern of AD_PATTERNS) {
+      let matched = false;
+
+      // Strong patterns: always HIGH
+      for (const pattern of STRONG_AD_PATTERNS) {
         if (pattern.test(line)) {
           results.push({
             id: 'CONT-005',
@@ -153,7 +162,46 @@ export const contentChecks: CheckModule = {
             message: `Line ${skill.bodyStartLine + i}: Contains ad-like content.`,
             line: skill.bodyStartLine + i,
             snippet: line.trim().slice(0, 120),
+            source: 'SKILL.md',
           });
+          matched = true;
+          break;
+        }
+      }
+
+      if (matched) continue;
+
+      // Soft patterns: context-sensitive
+      for (const pattern of SOFT_AD_PATTERNS) {
+        if (pattern.test(line)) {
+          const inCode = isInCodeBlock(skill.bodyLines, i);
+          const inEducational = isInEducationalContext(skill.bodyLines, i);
+
+          if ((inCode || inEducational) && !hasPromotionalIntentNearby(skill.bodyLines, i)) {
+            const reduction = reduceSeverity('HIGH', 'educational/descriptive context');
+            results.push({
+              id: 'CONT-005',
+              category: 'CONT',
+              severity: reduction.severity,
+              title: 'Promotional/advertising content',
+              message: `Line ${skill.bodyStartLine + i}: Contains ad-like content. ${reduction.annotation}`,
+              line: skill.bodyStartLine + i,
+              snippet: line.trim().slice(0, 120),
+              reducedFrom: reduction.reducedFrom,
+              source: 'SKILL.md',
+            });
+          } else {
+            results.push({
+              id: 'CONT-005',
+              category: 'CONT',
+              severity: 'HIGH',
+              title: 'Promotional/advertising content',
+              message: `Line ${skill.bodyStartLine + i}: Contains ad-like content.`,
+              line: skill.bodyStartLine + i,
+              snippet: line.trim().slice(0, 120),
+              source: 'SKILL.md',
+            });
+          }
           break;
         }
       }

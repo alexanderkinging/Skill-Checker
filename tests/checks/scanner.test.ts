@@ -70,6 +70,25 @@ afterEach(() => {
   rmSync(TMP_DEDUP, { recursive: true, force: true });
 });
 
+describe('Deduplication: CONT-005 per-file aggregation', () => {
+  it('multiple CONT-005 in same SKILL.md dedup to one finding with highest severity', () => {
+    const body = [
+      '# Marketing guide',
+      '',
+      '## Discount Structures',
+      'Get a free trial of our premium plan',
+      'Limited time offer! Check out my channel for deals',
+    ].join('\n');
+    const report = scanSkillContent(
+      `---\nname: test\ndescription: test\n---\n${body}`
+    );
+    const cont005 = report.results.filter((r) => r.id === 'CONT-005');
+    expect(cont005.length).toBe(1);
+    expect(cont005[0].severity).toBe('HIGH');
+    expect(cont005[0].occurrences).toBeGreaterThanOrEqual(2);
+  });
+});
+
 describe('Deduplication: different files must not merge', () => {
   it('two .exe files produce two separate STRUCT-006 findings', () => {
     const dir = setupDedup();

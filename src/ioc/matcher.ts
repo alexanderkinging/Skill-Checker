@@ -21,7 +21,7 @@ import { levenshtein } from '../utils/levenshtein.js';
 import type { IOCDatabase } from './indicators.js';
 import type { ParsedSkill } from '../types.js';
 
-/** SHA-256 of empty content — must never be treated as malicious */
+/** SHA256 hash of empty content — must never be treated as malicious */
 const EMPTY_FILE_HASH = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
 /** IPv4 pattern — matches standalone IPs in text */
@@ -50,7 +50,7 @@ function isPrivateIP(ip: string): boolean {
 const HASH_CHUNK_SIZE = 64 * 1024;
 
 /**
- * Compute SHA-256 hash of a file using chunked reads to avoid
+ * Compute SHA256 hash of a file using chunked reads to avoid
  * loading the entire file into memory.
  */
 function computeFileHash(filePath: string): string {

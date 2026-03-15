@@ -49,7 +49,7 @@ export const DEFAULT_IOC: IOCDatabase = {
   ],
 
   malicious_hashes: {
-    // NOTE: Never add the SHA-256 of an empty file (e3b0c44298fc...b855)
+    // NOTE: Never add the SHA256 of an empty file (e3b0c44298fc...b855)
     // as it causes false positives on any empty file.
     'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2':
       'clawhavoc-exfiltrator',
