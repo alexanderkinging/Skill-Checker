@@ -17,7 +17,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { DEFAULT_IOC, type IOCDatabase } from './indicators.js';
+import { DEFAULT_IOC, type IOCDatabase, type CategorizedDomains, type DomainCategory } from './indicators.js';
 
 let cachedIOC: IOCDatabase | null = null;
 
@@ -73,10 +73,17 @@ function mergeIOC(base: IOCDatabase, ext: Partial<IOCDatabase>): void {
     Object.assign(base.malicious_hashes, ext.malicious_hashes);
   }
   if (ext.malicious_domains) {
-    base.malicious_domains = dedupe([
-      ...base.malicious_domains,
-      ...ext.malicious_domains,
-    ]);
+    const categories: (keyof CategorizedDomains)[] = [
+      'exfiltration', 'tunnel', 'oast', 'paste', 'c2',
+    ];
+    for (const cat of categories) {
+      if (ext.malicious_domains[cat]) {
+        base.malicious_domains[cat] = dedupe([
+          ...base.malicious_domains[cat],
+          ...ext.malicious_domains[cat],
+        ]);
+      }
+    }
   }
   if (ext.typosquat) {
     if (ext.typosquat.known_patterns) {
@@ -100,6 +107,34 @@ function mergeIOC(base: IOCDatabase, ext: Partial<IOCDatabase>): void {
   }
   if (ext.version) base.version = ext.version;
   if (ext.updated) base.updated = ext.updated;
+}
+
+/**
+ * Get all malicious domains as a flat array.
+ */
+export function getAllDomains(ioc: IOCDatabase): string[] {
+  const { exfiltration, tunnel, oast, paste, c2 } = ioc.malicious_domains;
+  return [...exfiltration, ...tunnel, ...oast, ...paste, ...c2];
+}
+
+/**
+ * Find which category a domain belongs to.
+ * Returns undefined if domain is not in any category.
+ */
+export function getDomainCategory(
+  ioc: IOCDatabase,
+  domain: string
+): DomainCategory | undefined {
+  const d = domain.toLowerCase();
+  const categories: DomainCategory[] = ['exfiltration', 'tunnel', 'oast', 'paste', 'c2'];
+  for (const cat of categories) {
+    if (ioc.malicious_domains[cat].some(
+      (entry) => d === entry || d.endsWith('.' + entry)
+    )) {
+      return cat;
+    }
+  }
+  return undefined;
 }
 
 function dedupe(arr: string[]): string[] {

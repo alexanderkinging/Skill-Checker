@@ -112,7 +112,7 @@ context (code block, documentation section, etc.).
 | SUPPLY-004 | HIGH | Non-HTTPS URL | LLM05 (partial) | CWE-319 (Cleartext Transmission) | T1557 (Adversary-in-the-Middle) | Excludes LICENSE files, localhost; reduced in code blocks |
 | SUPPLY-005 | CRITICAL | Raw IP address in URL | LLM05 | CWE-829 | T1071 (Application Layer Protocol) | Excludes localhost/127.0.0.1 and private ranges |
 | SUPPLY-006 | MEDIUM | git clone command | LLM05 (partial) | CWE-829 (partial) | T1195.002 (partial) | Informational; verify source |
-| SUPPLY-007 | CRITICAL | Known suspicious domain | LLM05 | CWE-829 | T1583 (Acquire Infrastructure) | Matched against IOC malicious domain list; hostname boundary matching |
+| SUPPLY-007 | CRITICAL/HIGH/MEDIUM/LOW | Suspicious domain (categorized) | LLM05 | CWE-829 | T1583 (Acquire Infrastructure) | 5 categories: exfiltration/tunnel/oast/paste/c2; context-aware: CRITICAL with sensitive combo, HIGH default, MEDIUM in code block, LOW in documentation |
 | SUPPLY-008 | CRITICAL | Known malicious file hash | LLM05 | CWE-506 (Embedded Malicious Code) | T1195.002 | SHA-256 match against IOC database; empty hash excluded |
 | SUPPLY-009 | CRITICAL | Known C2 IP address | LLM05 | CWE-506 | T1071.001 (Web Protocols) | IOC match; private/reserved IPs excluded |
 | SUPPLY-010 | CRITICAL/HIGH | Typosquat name detection | LLM05 | CWE-829 | T1195.002 | CRITICAL for exact matches; HIGH for edit distance <= 2 |
@@ -184,9 +184,10 @@ Findings in certain contexts receive a one-level severity reduction:
 
 | Context | Reduction | Safety Floor | Applicable Rules |
 |---------|-----------|--------------|-----------------|
-| Inside markdown code block | -1 level | CRITICAL never below MEDIUM | CODE-003, CODE-004, CODE-006, SUPPLY-001, SUPPLY-003, SUPPLY-004 |
-| Documentation/install section | -1 level | Same | CODE-012, SUPPLY-003 |
+| Inside markdown code block | -1 level | CRITICAL never below MEDIUM | CODE-003, CODE-004, CODE-006, SUPPLY-001, SUPPLY-003, SUPPLY-004, SUPPLY-007 |
+| Documentation/install section | -1 level | Same | CODE-012, SUPPLY-003, SUPPLY-007 |
 | Educational/descriptive context | -1 level | Same | CONT-005 (soft patterns only) |
+| Combined with sensitive operation | +escalation to CRITICAL | — | SUPPLY-007 (curl -d @file, pipe to shell, sensitive file references) |
 
 Rules that **never** receive reduction: CODE-001, CODE-002, CODE-005,
 CODE-009, CODE-010, CODE-013, CODE-014, CODE-015, all INJ-* rules, all RES-* rules, IOC matches

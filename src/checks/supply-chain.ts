@@ -25,12 +25,35 @@ import {
   isLicenseFile,
   isLocalhostURL,
 } from '../utils/context.js';
-import { loadIOC } from '../ioc/index.js';
+import { loadIOC, getAllDomains, getDomainCategory } from '../ioc/index.js';
 
 /** Hardcoded fallback domains (used when IOC has no malicious_domains) */
 const FALLBACK_SUSPICIOUS_DOMAINS = [
   'darkweb.onion',
 ];
+
+/**
+ * Check if the line contains a suspicious domain combined with sensitive operations.
+ * These combinations indicate likely malicious intent rather than documentation.
+ */
+function isSensitiveDomainCombo(line: string): boolean {
+  if (/curl\b[^\n]*(?:-d|--data|--data-binary|--data-raw|--data-urlencode)\s+@/i.test(line)) {
+    return true;
+  }
+  if (/curl\b[^\n]*(?:-F|--form)\s+[^\s=]+=@/i.test(line)) {
+    return true;
+  }
+  if (/wget\b[^\n]*--post-file/i.test(line)) {
+    return true;
+  }
+  if (/\|\s*(?:sh|bash|zsh|python|node)\b/i.test(line)) {
+    return true;
+  }
+  if (/(?:\.env|\.ssh|id_rsa|\.aws|credentials|\.netrc|\.git-credentials)/i.test(line)) {
+    return true;
+  }
+  return false;
+}
 
 const MCP_SERVER_PATTERN = /\bmcp[-_]?server\b/i;
 const NPX_Y_PATTERN = /\bnpx\s+-y\s+/;
@@ -72,9 +95,10 @@ export const supplyChainChecks: CheckModule = {
     const results: CheckResult[] = [];
     const allText = getAllText(skill);
     const ioc = loadIOC();
-    const suspiciousDomains = ioc.malicious_domains.length > 0
-      ? ioc.malicious_domains
-      : FALLBACK_SUSPICIOUS_DOMAINS;
+    const suspiciousDomains = getAllDomains(ioc);
+    if (suspiciousDomains.length === 0) {
+      suspiciousDomains.push(...FALLBACK_SUSPICIOUS_DOMAINS);
+    }
 
     for (let i = 0; i < allText.length; i++) {
       const { line, lineNum, source } = allText[i];
@@ -263,15 +287,53 @@ export const supplyChainChecks: CheckModule = {
         const hostname = extractHostname(url);
         for (const domain of suspiciousDomains) {
           if (hostnameMatchesDomain(hostname, domain)) {
+            const category = getDomainCategory(ioc, domain);
+            const categoryLabel = category ? ` (${category})` : '';
+
+            let severity: Severity = 'HIGH';
+            let reducedFrom: Severity | undefined;
+            let msgSuffix = '';
+
+            // Escalate: combined with sensitive operations on same line
+            if (isSensitiveDomainCombo(line)) {
+              severity = 'CRITICAL';
+              msgSuffix = ' [escalated: combined with sensitive operation]';
+            } else {
+              // Check code block context
+              const srcLines = getLinesForSource(skill, source);
+              const localIdx = getLocalIndex(source, lineNum, skill.bodyStartLine);
+              const inCodeBlock = localIdx >= 0 && isInCodeBlock(srcLines, localIdx);
+
+              if (inCodeBlock) {
+                severity = 'MEDIUM';
+                reducedFrom = 'HIGH';
+                msgSuffix = ' [reduced: in code block]';
+              } else {
+                // Check documentation context
+                const allLines = getAllLines(skill);
+                const globalIdx = findGlobalLineIndex(allLines, source, lineNum);
+                const isDoc = source === 'SKILL.md' && globalIdx >= 0 && isInDocumentationContext(
+                  allLines.map((l) => l.line),
+                  globalIdx
+                );
+                if (isDoc) {
+                  severity = 'LOW';
+                  reducedFrom = 'HIGH';
+                  msgSuffix = ' [reduced: in documentation context]';
+                }
+              }
+            }
+
             results.push({
               id: 'SUPPLY-007',
               category: 'SUPPLY',
-              severity: 'CRITICAL',
-              title: 'Suspicious domain detected',
-              message: `${source}:${lineNum}: References suspicious domain "${domain}".`,
+              severity,
+              title: `Suspicious domain${categoryLabel} detected`,
+              message: `${source}:${lineNum}: References suspicious domain "${domain}".${msgSuffix}`,
               line: lineNum,
               snippet: url,
               source,
+              reducedFrom,
             });
             break;
           }

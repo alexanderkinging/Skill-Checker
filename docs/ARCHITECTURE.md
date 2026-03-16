@@ -144,9 +144,28 @@ SUPPLY-006 在文档上下文中直接跳过（不生成发现），在代码块
 
 内嵌种子数据 + 可选外部覆盖文件 (`~/.config/skill-checker/ioc-override.json`)：
 
+- SUPPLY-007: 可疑域名检测（5 类分类 + 上下文感知严重度）
 - SUPPLY-008: 已知恶意 skill 文件 SHA-256 哈希匹配
 - SUPPLY-009: 已知 C2 服务器 IP 地址匹配（排除私有/保留地址）
 - SUPPLY-010: Typosquat 名称检测（精确匹配 + Levenshtein 编辑距离 ≤ 2）
+
+#### SUPPLY-007 域名分类与上下文感知
+
+域名按威胁类型分为 5 类（`CategorizedDomains`）：
+- `exfiltration`: 数据外泄服务 (webhook.site, requestbin.com 等)
+- `tunnel`: 临时隧道/端口转发 (ngrok.io, serveo.net 等)
+- `oast`: 安全测试/OAST (interact.sh, dnslog.cn 等)
+- `paste`: 匿名粘贴/代码托管 (pastebin.com, ghostbin.com 等)
+- `c2`: 已知 C2 基础设施 (evil.com, malware.com 等)
+
+上下文感知严重度：
+
+| 上下文 | 严重度 | 说明 |
+|--------|--------|------|
+| 与敏感操作组合 | CRITICAL | curl -d @file, pipe to shell, 敏感文件引用 |
+| 普通提及 | HIGH | 默认严重度 |
+| 代码块内 | MEDIUM | 可能是示例代码 |
+| 文档上下文 | LOW | 安装/调试说明 |
 
 ### Parser 大文件处理
 

@@ -19,12 +19,22 @@
  * Seed data is compiled from publicly available threat intelligence.
  */
 
+export type DomainCategory = 'exfiltration' | 'tunnel' | 'oast' | 'paste' | 'c2';
+
+export interface CategorizedDomains {
+  exfiltration: string[];
+  tunnel: string[];
+  oast: string[];
+  paste: string[];
+  c2: string[];
+}
+
 export interface IOCDatabase {
   version: string;
   updated: string;
   c2_ips: string[];
   malicious_hashes: Record<string, string>;
-  malicious_domains: string[];
+  malicious_domains: CategorizedDomains;
   typosquat: {
     known_patterns: string[];
     protected_names: string[];
@@ -37,8 +47,8 @@ export interface IOCDatabase {
  * Sources: public threat intelligence reports, community advisories.
  */
 export const DEFAULT_IOC: IOCDatabase = {
-  version: '2026.03.06',
-  updated: '2026-03-06',
+  version: '2026.03.16',
+  updated: '2026-03-16',
 
   c2_ips: [
     '91.92.242.30',
@@ -55,32 +65,61 @@ export const DEFAULT_IOC: IOCDatabase = {
       'clawhavoc-exfiltrator',
   },
 
-  malicious_domains: [
-    'webhook.site',
-    'requestbin.com',
-    'pipedream.com',
-    'pipedream.net',
-    'hookbin.com',
-    'beeceptor.com',
-    'ngrok.io',
-    'ngrok-free.app',
-    'serveo.net',
-    'localtunnel.me',
-    'bore.pub',
-    'interact.sh',
-    'oast.fun',
-    'oastify.com',
-    'dnslog.cn',
-    'ceye.io',
-    'burpcollaborator.net',
-    'pastebin.com',
-    'paste.ee',
-    'hastebin.com',
-    'ghostbin.com',
-    'evil.com',
-    'malware.com',
-    'exploit.in',
-  ],
+  malicious_domains: {
+    exfiltration: [
+      'webhook.site',
+      'requestbin.com',
+      'requestcatcher.com',
+      'pipedream.com',
+      'pipedream.net',
+      'hookbin.com',
+      'beeceptor.com',
+      'postb.in',
+      'webhook.lol',
+      'requestinspector.com',
+      'mockbin.org',
+    ],
+    tunnel: [
+      'ngrok.io',
+      'ngrok-free.app',
+      'serveo.net',
+      'localtunnel.me',
+      'bore.pub',
+      'localhost.run',
+      'loca.lt',
+      'telebit.cloud',
+      'playit.gg',
+      'portmap.io',
+      'pagekite.me',
+    ],
+    oast: [
+      'interact.sh',
+      'oast.fun',
+      'oastify.com',
+      'dnslog.cn',
+      'ceye.io',
+      'burpcollaborator.net',
+      'canarytokens.com',
+      'requestrepo.com',
+    ],
+    paste: [
+      'pastebin.com',
+      'paste.ee',
+      'hastebin.com',
+      'ghostbin.com',
+      'dpaste.org',
+      'rentry.co',
+      '0bin.net',
+      'privatebin.net',
+      'paste.mozilla.org',
+    ],
+    c2: [
+      'evil.com',
+      'malware.com',
+      'exploit.in',
+      'darkweb.onion',
+    ],
+  },
 
   typosquat: {
     known_patterns: [
