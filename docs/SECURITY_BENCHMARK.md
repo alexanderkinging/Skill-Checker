@@ -184,8 +184,9 @@ Findings in certain contexts receive a one-level severity reduction:
 
 | Context | Reduction | Safety Floor | Applicable Rules |
 |---------|-----------|--------------|-----------------|
-| Inside markdown code block | -1 level | CRITICAL never below MEDIUM | CODE-003, CODE-004, CODE-006, SUPPLY-001, SUPPLY-003, SUPPLY-004, SUPPLY-007 |
-| Documentation/install section | -1 level | Same | CODE-012, SUPPLY-003, SUPPLY-007 |
+| Inside markdown code block | -1 level (HIGH → MEDIUM) | CRITICAL never below MEDIUM | CODE-003, CODE-004, CODE-006, SUPPLY-001, SUPPLY-003, SUPPLY-004, SUPPLY-007 |
+| Documentation/install section | -1 level | Same | CODE-012, SUPPLY-003 |
+| Documentation/install section | -2 levels (HIGH → LOW) | Same | SUPPLY-007 |
 | Educational/descriptive context | -1 level | Same | CONT-005 (soft patterns only) |
 | Combined with sensitive operation | +escalation to CRITICAL | — | SUPPLY-007 (curl -d @file, pipe to shell, sensitive file references) |
 

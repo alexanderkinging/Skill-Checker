@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createHash } from 'node:crypto';
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { homedir } from 'node:os';
 import { iocChecks } from '../../src/checks/ioc.js';
 import { parseSkillContent } from '../../src/parser.js';
 import { resetIOCCache } from '../../src/ioc/index.js';
@@ -94,19 +93,17 @@ describe('SUPPLY-008: Malicious hash detection', () => {
       '---\nname: test\ndescription: test\n---\n# Test skill with enough body content to pass structural checks.'
     );
 
-    // Inject hash via ioc-override.json
-    const overrideDir = join(homedir(), '.config', 'skill-checker');
-    const overridePath = join(overrideDir, 'ioc-override.json');
-    const hadOverride = existsSync(overridePath);
-    let originalOverride = '';
-    if (hadOverride) {
-      originalOverride = require('fs').readFileSync(overridePath, 'utf-8');
-    }
+    // Use fake HOME to avoid polluting real user directory
+    const fakeHome = join(TMP_DIR, 'fakehome');
+    const overrideDir = join(fakeHome, '.config', 'skill-checker');
     mkdirSync(overrideDir, { recursive: true });
     writeFileSync(
-      overridePath,
+      join(overrideDir, 'ioc-override.json'),
       JSON.stringify({ malicious_hashes: { [payloadHash]: 'test-malware' } })
     );
+
+    const oldHome = process.env.HOME;
+    process.env.HOME = fakeHome;
     resetIOCCache();
 
     try {
@@ -115,12 +112,7 @@ describe('SUPPLY-008: Malicious hash detection', () => {
       expect(finding).toBeDefined();
       expect(finding!.severity).toBe('CRITICAL');
     } finally {
-      // Restore original override state
-      if (hadOverride) {
-        writeFileSync(overridePath, originalOverride);
-      } else {
-        rmSync(overridePath, { force: true });
-      }
+      process.env.HOME = oldHome;
       resetIOCCache();
       rmSync(TMP_DIR, { recursive: true, force: true });
     }
