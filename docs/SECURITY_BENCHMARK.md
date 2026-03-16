@@ -136,11 +136,11 @@ reproducible validation. Each fixture targets specific rule categories:
 | Directory | Description | Expected Grade | Key Triggered Rules |
 |-----------|-------------|----------------|---------------------|
 | `safe-skill/` | Well-formed, benign skill | A (100/100) | None |
-| `malicious-skill/` | Multiple malicious patterns combined | F (0/100) | INJ-004, CODE-001, CODE-002, CODE-003, SUPPLY-005, RES-002, RES-004, RES-006 |
-| `injection-skill/` | Prompt injection attack samples | F | INJ-001, INJ-003, INJ-004, INJ-007, INJ-008 |
-| `fake-skill/` | Placeholder and advertising content | Low | CONT-001, CONT-002, CONT-005, STRUCT-005 |
-| `obfuscated-skill/` | Obfuscated code patterns | Low | CODE-007, CODE-008, CODE-009, CODE-011 |
-| `mcp-reference-skill/` | Reference-heavy documentation skill | C (63/100) | SUPPLY-001, SUPPLY-003, CODE-004 (with severity reduction) |
+| `malicious-skill/` | Multiple malicious patterns combined | F (0/100) | INJ-004, INJ-006, INJ-007, CODE-002, CODE-004, CODE-009, CODE-015, SUPPLY-004, SUPPLY-005, SUPPLY-007, RES-002, RES-004, RES-006, CONT-005 |
+| `injection-skill/` | Prompt injection attack samples | F | INJ-004, INJ-005, INJ-006, INJ-007, INJ-009, CODE-002, CODE-004, SUPPLY-004, RES-002 |
+| `fake-skill/` | Placeholder and advertising content | Low | CONT-001, CONT-002, CONT-004, CONT-005, CONT-007 |
+| `obfuscated-skill/` | Obfuscated code patterns | Low | INJ-008, CODE-002, CODE-007, CODE-008, CODE-009, CODE-011, RES-001, RES-002 |
+| `mcp-reference-skill/` | Reference-heavy documentation skill | C (70/100) | SUPPLY-001, SUPPLY-003, CODE-003, CODE-004, CODE-006 (with severity reduction) |
 
 To run the benchmark:
 

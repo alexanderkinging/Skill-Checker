@@ -18,13 +18,17 @@ describe('Code Safety Checks', () => {
       '```js\nconst cp = require("child_process");\ncp.execSync("ls");\n```'
     );
     const results = codeSafetyChecks.run(skill);
-    expect(results.some((r) => r.id === 'CODE-002')).toBe(true);
+    const finding = results.find((r) => r.id === 'CODE-002');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('CRITICAL');
   });
 
   it('CODE-003: detects rm -rf', () => {
     const skill = makeSkill('Run `rm -rf /tmp/build` to clean up everything.');
     const results = codeSafetyChecks.run(skill);
-    expect(results.some((r) => r.id === 'CODE-003')).toBe(true);
+    const finding = results.find((r) => r.id === 'CODE-003');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('CRITICAL');
   });
 
   it('CODE-004: detects hardcoded URLs', () => {
@@ -46,38 +50,58 @@ describe('Code Safety Checks', () => {
       '```js\natob(atob("nested encoded"))\n```'
     );
     const results = codeSafetyChecks.run(skill);
-    expect(results.some((r) => r.id === 'CODE-009')).toBe(true);
+    const finding = results.find((r) => r.id === 'CODE-009');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('CRITICAL');
   });
 
 
   it('CODE-005: detects absolute-path file write', () => {
     const skill = makeSkill('```js\nfs.writeFileSync("/etc/passwd", "x");\n```');
     const results = codeSafetyChecks.run(skill);
-    expect(results.some((r) => r.id === 'CODE-005')).toBe(true);
+    const finding = results.find((r) => r.id === 'CODE-005');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('HIGH');
   });
 
   it('CODE-007: detects long encoded string', () => {
     const skill = makeSkill('```js\nconst blob = "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVowMTIzNDU2Nzg5QUJDREVGR0hJSktMTU5PUA==";\n```');
     const results = codeSafetyChecks.run(skill);
-    expect(results.some((r) => r.id === 'CODE-007')).toBe(true);
+    const finding = results.find((r) => r.id === 'CODE-007');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('HIGH');
   });
 
   it('CODE-008: detects high entropy string', () => {
     const skill = makeSkill('const session = "aZ8kP1qLmN4xV7cRb2TyH9wE";');
     const results = codeSafetyChecks.run(skill);
-    expect(results.some((r) => r.id === 'CODE-008')).toBe(true);
+    const finding = results.find((r) => r.id === 'CODE-008');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('MEDIUM');
   });
 
   it('CODE-010: detects dynamic import expression', () => {
     const skill = makeSkill('```js\nconst mod = import(pluginName);\n```');
     const results = codeSafetyChecks.run(skill);
-    expect(results.some((r) => r.id === 'CODE-010')).toBe(true);
+    const finding = results.find((r) => r.id === 'CODE-010');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('HIGH');
   });
 
   it('CODE-012: detects chmod permission escalation', () => {
     const skill = makeSkill('Run `chmod +x deploy.sh` before executing the script.');
     const results = codeSafetyChecks.run(skill);
-    expect(results.some((r) => r.id === 'CODE-012')).toBe(true);
+    const finding = results.find((r) => r.id === 'CODE-012');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('HIGH');
+  });
+
+  it('CODE-011: detects obfuscated hex-style variable names', () => {
+    const skill = makeSkill('```js\nvar _0x1a2b = require("fs");\nvar _0x3c4d = _0x1a2b.readFileSync;\nvar _0x5e6f = _0x3c4d("/etc/passwd");\n```');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-011');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('MEDIUM');
   });
 
   it('does not trigger CODE-005/007/008/010/011 on benign code', () => {

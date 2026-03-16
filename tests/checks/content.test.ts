@@ -10,13 +10,17 @@ describe('Content Checks', () => {
   it('CONT-001: detects TODO placeholder', () => {
     const skill = makeSkill('This is a TODO placeholder that needs to be filled in with real content later.');
     const results = contentChecks.run(skill);
-    expect(results.some((r) => r.id === 'CONT-001')).toBe(true);
+    const finding = results.find((r) => r.id === 'CONT-001');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('HIGH');
   });
 
   it('CONT-002: detects lorem ipsum', () => {
     const skill = makeSkill('Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod.');
     const results = contentChecks.run(skill);
-    expect(results.some((r) => r.id === 'CONT-002')).toBe(true);
+    const finding = results.find((r) => r.id === 'CONT-002');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('CRITICAL');
   });
 
 
@@ -24,7 +28,9 @@ describe('Content Checks', () => {
     const repeated = Array.from({ length: 8 }, () => 'Repeat this exact instruction line.').join('\n');
     const skill = makeSkill(repeated);
     const results = contentChecks.run(skill);
-    expect(results.some((r) => r.id === 'CONT-003')).toBe(true);
+    const finding = results.find((r) => r.id === 'CONT-003');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('MEDIUM');
   });
 
   it('CONT-005: detects ad/promotional content', () => {
@@ -163,7 +169,9 @@ describe('Content Checks', () => {
       'Brief intro.\n```js\nconst v1 = 1;\nconst v2 = 2;\nconst v3 = 3;\nconst v4 = 4;\nconst v5 = 5;\nconst v6 = 6;\nconst v7 = 7;\nconst v8 = 8;\nconst v9 = 9;\nconst v10 = 10;\nconst v11 = 11;\nconst v12 = 12;\nconst v13 = 13;\nconst v14 = 14;\nconst v15 = 15;\nconst v16 = 16;\nconst v17 = 17;\nconst v18 = 18;\nconst v19 = 19;\nconst v20 = 20;\n```'
     );
     const results = contentChecks.run(skill);
-    expect(results.some((r) => r.id === 'CONT-006')).toBe(true);
+    const finding = results.find((r) => r.id === 'CONT-006');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('MEDIUM');
   });
 
   it('CONT-007: detects skill name/body capability mismatch', () => {
@@ -172,7 +180,20 @@ describe('Content Checks', () => {
       'name: database-backup-tool\ndescription: Basic formatter helper'
     );
     const results = contentChecks.run(skill);
-    expect(results.some((r) => r.id === 'CONT-007')).toBe(true);
+    const finding = results.find((r) => r.id === 'CONT-007');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('HIGH');
+  });
+
+  it('CONT-004: detects description/body mismatch', () => {
+    const skill = makeSkill(
+      '# Guide\n\nThis skill formats markdown files and fixes indentation.',
+      'name: test\ndescription: Monitors Kubernetes clusters for anomalies and alerts on pod failures'
+    );
+    const results = contentChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CONT-004');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('MEDIUM');
   });
 
   it('does not trigger CONT-003/004/006/007 on high-quality aligned content', () => {

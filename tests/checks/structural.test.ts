@@ -6,7 +6,9 @@ describe('Structural Checks', () => {
   it('STRUCT-001: detects missing SKILL.md', () => {
     const skill = parseSkillContent('');
     const results = structuralChecks.run(skill);
-    expect(results.some((r) => r.id === 'STRUCT-001')).toBe(true);
+    const finding = results.find((r) => r.id === 'STRUCT-001');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('CRITICAL');
   });
 
   it('STRUCT-002: detects missing frontmatter', () => {
@@ -14,7 +16,9 @@ describe('Structural Checks', () => {
       'Just some text without frontmatter. This needs to be at least fifty characters long to pass.'
     );
     const results = structuralChecks.run(skill);
-    expect(results.some((r) => r.id === 'STRUCT-002')).toBe(true);
+    const finding = results.find((r) => r.id === 'STRUCT-002');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('HIGH');
   });
 
   it('STRUCT-003: detects missing name', () => {
@@ -22,7 +26,9 @@ describe('Structural Checks', () => {
       '---\ndescription: test\n---\nBody content that is long enough to pass the minimum character check easily.'
     );
     const results = structuralChecks.run(skill);
-    expect(results.some((r) => r.id === 'STRUCT-003')).toBe(true);
+    const finding = results.find((r) => r.id === 'STRUCT-003');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('HIGH');
   });
 
   it('STRUCT-004: detects missing description', () => {
@@ -30,13 +36,17 @@ describe('Structural Checks', () => {
       '---\nname: test-skill\n---\nBody content that is long enough to pass the minimum character check easily.'
     );
     const results = structuralChecks.run(skill);
-    expect(results.some((r) => r.id === 'STRUCT-004')).toBe(true);
+    const finding = results.find((r) => r.id === 'STRUCT-004');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('MEDIUM');
   });
 
   it('STRUCT-005: detects short body', () => {
     const skill = parseSkillContent('---\nname: test\ndescription: test\n---\nShort.');
     const results = structuralChecks.run(skill);
-    expect(results.some((r) => r.id === 'STRUCT-005')).toBe(true);
+    const finding = results.find((r) => r.id === 'STRUCT-005');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('CRITICAL');
   });
 
   it('STRUCT-007: detects non-hyphen-case name', () => {
@@ -44,7 +54,20 @@ describe('Structural Checks', () => {
       '---\nname: MySkill\ndescription: test\n---\nBody content that is long enough to pass the minimum character check easily.'
     );
     const results = structuralChecks.run(skill);
-    expect(results.some((r) => r.id === 'STRUCT-007')).toBe(true);
+    const finding = results.find((r) => r.id === 'STRUCT-007');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('MEDIUM');
+  });
+
+  it('STRUCT-008: reports scan coverage warning', () => {
+    const skill = parseSkillContent(
+      '---\nname: test\ndescription: test\n---\n# Test skill with enough body content to pass structural checks.'
+    );
+    skill.warnings.push('Skipped symlink: malicious-link');
+    const results = structuralChecks.run(skill);
+    const finding = results.find((r) => r.id === 'STRUCT-008');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('MEDIUM');
   });
 
   it('passes for valid skill', () => {

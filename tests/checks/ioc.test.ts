@@ -1,8 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createHash } from 'node:crypto';
+import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { iocChecks } from '../../src/checks/ioc.js';
 import { parseSkillContent } from '../../src/parser.js';
 import { resetIOCCache } from '../../src/ioc/index.js';
+import { scanSkillDirectory } from '../../src/scanner.js';
 import { levenshtein } from '../../src/utils/levenshtein.js';
 import { matchTyposquat, matchC2IPs, matchMaliciousHashes } from '../../src/ioc/matcher.js';
 import { DEFAULT_IOC } from '../../src/ioc/indicators.js';
@@ -45,6 +49,83 @@ describe('Levenshtein distance', () => {
 });
 
 describe('SUPPLY-008: Malicious hash detection', () => {
+  const TMP_DIR = join(import.meta.dirname, '..', 'tmp-ioc-hash-test');
+
+  it('detects file matching known malicious hash', () => {
+    // Create temp dir with a file whose hash we control
+    rmSync(TMP_DIR, { recursive: true, force: true });
+    mkdirSync(TMP_DIR, { recursive: true });
+
+    const payload = 'malicious-payload-content-for-test';
+    const payloadHash = createHash('sha256').update(payload).digest('hex');
+    writeFileSync(join(TMP_DIR, 'evil.js'), payload);
+
+    // Build a custom IOC with our known hash
+    const customIOC = {
+      ...DEFAULT_IOC,
+      malicious_hashes: { [payloadHash]: 'test-malware' },
+    };
+
+    // Build a minimal ParsedSkill pointing at the temp dir
+    const skill: ParsedSkill = {
+      ...makeSkill('# Test'),
+      dirPath: TMP_DIR,
+      files: [{ path: 'evil.js', content: payload }],
+    };
+
+    const matches = matchMaliciousHashes(skill, customIOC);
+    expect(matches.length).toBe(1);
+    expect(matches[0].file).toBe('evil.js');
+    expect(matches[0].description).toBe('test-malware');
+
+    rmSync(TMP_DIR, { recursive: true, force: true });
+  });
+
+  it('SUPPLY-008 rule fires via ioc-override + scanSkillDirectory', () => {
+    // Setup: temp skill dir with a malicious file
+    rmSync(TMP_DIR, { recursive: true, force: true });
+    mkdirSync(TMP_DIR, { recursive: true });
+
+    const payload = 'malicious-payload-content-for-test';
+    const payloadHash = createHash('sha256').update(payload).digest('hex');
+    writeFileSync(join(TMP_DIR, 'evil.js'), payload);
+    writeFileSync(
+      join(TMP_DIR, 'SKILL.md'),
+      '---\nname: test\ndescription: test\n---\n# Test skill with enough body content to pass structural checks.'
+    );
+
+    // Inject hash via ioc-override.json
+    const overrideDir = join(homedir(), '.config', 'skill-checker');
+    const overridePath = join(overrideDir, 'ioc-override.json');
+    const hadOverride = existsSync(overridePath);
+    let originalOverride = '';
+    if (hadOverride) {
+      originalOverride = require('fs').readFileSync(overridePath, 'utf-8');
+    }
+    mkdirSync(overrideDir, { recursive: true });
+    writeFileSync(
+      overridePath,
+      JSON.stringify({ malicious_hashes: { [payloadHash]: 'test-malware' } })
+    );
+    resetIOCCache();
+
+    try {
+      const report = scanSkillDirectory(TMP_DIR);
+      const finding = report.results.find((r) => r.id === 'SUPPLY-008');
+      expect(finding).toBeDefined();
+      expect(finding!.severity).toBe('CRITICAL');
+    } finally {
+      // Restore original override state
+      if (hadOverride) {
+        writeFileSync(overridePath, originalOverride);
+      } else {
+        rmSync(overridePath, { force: true });
+      }
+      resetIOCCache();
+      rmSync(TMP_DIR, { recursive: true, force: true });
+    }
+  });
+
   it('does not flag clean skill content', () => {
     const skill = makeSkill('# Safe Skill\n\nThis is a safe skill.');
     const results = iocChecks.run(skill);
