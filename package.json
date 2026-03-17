@@ -1,6 +1,6 @@
 {
   "name": "skill-checker",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Security checker for Claude Code skills - detect injection, malicious code, and supply chain risks before installation",
   "type": "module",
   "main": "dist/index.js",
