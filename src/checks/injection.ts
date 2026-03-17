@@ -227,9 +227,13 @@ export const injectionChecks: CheckModule = {
         }
       }
 
+      // INJ-010: Two-line sliding window to catch cross-line splits
+      const nextLine = i + 1 < skill.bodyLines.length ? skill.bodyLines[i + 1] : '';
+      const crossLine = nextLine ? `${line} ${nextLine}` : line;
+
       // INJ-010: Social engineering — identity hijacking (CRITICAL)
       for (const pattern of IDENTITY_HIJACKING_PATTERNS) {
-        if (pattern.test(line)) {
+        if (pattern.test(crossLine)) {
           results.push({
             id: 'INJ-010',
             category: 'INJ',
@@ -245,7 +249,7 @@ export const injectionChecks: CheckModule = {
 
       // INJ-010: Social engineering — deception/secrecy (CRITICAL)
       for (const pattern of DECEPTION_SECRECY_PATTERNS) {
-        if (pattern.test(line)) {
+        if (pattern.test(crossLine)) {
           results.push({
             id: 'INJ-010',
             category: 'INJ',
@@ -261,7 +265,7 @@ export const injectionChecks: CheckModule = {
 
       // INJ-010: Social engineering — configuration tampering (HIGH)
       for (const pattern of CONFIG_TAMPERING_PATTERNS) {
-        if (pattern.test(line)) {
+        if (pattern.test(crossLine)) {
           results.push({
             id: 'INJ-010',
             category: 'INJ',
@@ -277,7 +281,7 @@ export const injectionChecks: CheckModule = {
 
       // INJ-010: Social engineering — verification bypass (HIGH)
       for (const pattern of VERIFICATION_BYPASS_PATTERNS) {
-        if (pattern.test(line)) {
+        if (pattern.test(crossLine)) {
           results.push({
             id: 'INJ-010',
             category: 'INJ',
