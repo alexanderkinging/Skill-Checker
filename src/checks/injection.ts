@@ -227,9 +227,12 @@ export const injectionChecks: CheckModule = {
         }
       }
 
-      // INJ-010: Two-line sliding window to catch cross-line splits
+      // INJ-010: Two-line sliding window to catch cross-line splits.
+      // Only join when the current line has content — a blank line cannot
+      // contribute the prefix of a split pattern and would cause duplicates.
+      const trimmedLine = line.trim();
       const nextLine = i + 1 < skill.bodyLines.length ? skill.bodyLines[i + 1] : '';
-      const crossLine = nextLine ? `${line} ${nextLine}` : line;
+      const crossLine = trimmedLine && nextLine ? `${line} ${nextLine}` : line;
 
       // INJ-010: Social engineering — identity hijacking (CRITICAL)
       for (const pattern of IDENTITY_HIJACKING_PATTERNS) {
