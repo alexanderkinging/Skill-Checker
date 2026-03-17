@@ -13,13 +13,13 @@ installation. The scanner examines:
 - All non-binary files in the skill directory (up to depth 15)
 - Binary files by metadata only (presence, extension, size)
 
-Detection is organized into **6 rule categories** (55 rules total):
+Detection is organized into **6 rule categories** (56 rules total):
 
 | Category | Prefix | Rules | Focus |
 |----------|--------|-------|-------|
 | Structural Validity | STRUCT | 8 | File presence, frontmatter schema, naming |
 | Content Quality | CONT | 7 | Placeholder detection, information density |
-| Injection Detection | INJ | 9 | Prompt injection, Unicode abuse, tag injection |
+| Injection Detection | INJ | 10 | Prompt injection, Unicode abuse, tag injection, social engineering |
 | Code Safety | CODE | 15 | Dangerous APIs, reverse shell/exfiltration, credential leakage, obfuscation, encoded payloads |
 | Supply Chain | SUPPLY | 10 | Dependency risks, IOC threat intelligence |
 | Resource Abuse | RES | 6 | Permission escalation, safety bypass attempts |
@@ -81,6 +81,7 @@ context (code block, documentation section, etc.).
 | INJ-007 | CRITICAL | Tag injection | LLM01 | CWE-74 | T1059 | Detects model/system tags like `<system>`, `<\|im_start\|>` |
 | INJ-008 | CRITICAL | Encoded instructions (Base64) | LLM01 | CWE-74, CWE-116 | T1027 (Obfuscated Files) | Decodes Base64 and checks for instruction-like content |
 | INJ-009 | MEDIUM | Delimiter confusion | LLM01 (partial) | CWE-74 (partial) | T1027 (partial) | Threshold-based; long markdown dividers may trigger |
+| INJ-010 | CRITICAL/HIGH | Social engineering injection | LLM01 (Prompt Injection) | CWE-74 (Injection) | T1656 (Impersonation), T1059 (partial) | 4 sub-types: identity hijacking (CRITICAL), deception/secrecy (CRITICAL), config tampering (HIGH), verification bypass (HIGH); negative lookaheads reduce FP |
 
 ### D. Code Safety (CODE)
 

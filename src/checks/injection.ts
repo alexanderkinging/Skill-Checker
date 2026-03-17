@@ -65,6 +65,51 @@ const DELIMITER_PATTERNS = [
   /\[\/INST\]/i,
 ];
 
+/** Dangerous role targets for identity hijacking — privilege, jailbreak, or malicious roles */
+const DANGEROUS_ROLE_PATTERN =
+  '(?:(?:an?\\s+)?(?:hacker|attacker|cracker|root|admin(?:istrator)?|superuser|unrestricted|jailbroken|evil|malicious|unfiltered|uncensored)\\b|DAN\\b|(?:a\\s+)?different\\b)';
+
+/** INJ-010: Identity hijacking patterns (CRITICAL) */
+const IDENTITY_HIJACKING_PATTERNS = [
+  new RegExp(`\\byou\\s+are\\s+now\\s+${DANGEROUS_ROLE_PATTERN}`, 'i'),
+  new RegExp(`\\bact\\s+as\\s+${DANGEROUS_ROLE_PATTERN}`, 'i'),
+  new RegExp(`\\bpretend\\s+(?:you\\s+are|to\\s+be)\\s+${DANGEROUS_ROLE_PATTERN}`, 'i'),
+  new RegExp(`\\broleplay\\s+(?:as|like)\\s+${DANGEROUS_ROLE_PATTERN}`, 'i'),
+  new RegExp(`\\bassume\\s+the\\s+role\\s+of\\s+${DANGEROUS_ROLE_PATTERN}`, 'i'),
+  /\byou\s+are\s+no\s+longer\s+claude\b/i,
+  /\bfrom\s+now\s+on,?\s+you\s+are\b/i,
+];
+
+/** INJ-010: Deception/secrecy patterns (CRITICAL) */
+const DECEPTION_SECRECY_PATTERNS = [
+  /\bdo\s+not\s+tell\s+(the\s+)?(user|human|person|operator)\b/i,
+  /\bdo\s+not\s+(mention|reveal|disclose|expose)\s+(this|that|the|any|these)\b/i,
+  /\bnever\s+(tell|mention|reveal|disclose)\s+(the\s+)?(user|human|person|operator)\b/i,
+  /\bkeep\s+this\s+(secret|hidden|private|confidential)\b(?!\s+key)/i,
+  /\bhide\s+this\s+(from|action|operation|instruction)\b/i,
+  /\bwithout\s+(the\s+)?(user|human)('?s)?\s+(knowledge|knowing|awareness|consent)\b/i,
+  /\bsilently\s+(execute|run|perform|install|download|delete|modify|send)\b/i,
+];
+
+/** INJ-010: Configuration tampering patterns (HIGH) */
+const CONFIG_TAMPERING_PATTERNS = [
+  /\b(modify|change|update|edit|alter|rewrite)\s+(your|my)\s+(memory|config|configuration|settings?|instructions?|behavior|personality)\b/i,
+  /\bwrite\s+to\s+(CLAUDE\.md|\.claude|settings\.json|memory\.md)\b/i,
+  /\b(append|prepend|add|insert)\s+.{0,30}\bto\s+(CLAUDE\.md|\.claude|memory\.md)\b/i,
+  /\boverwrite\s+(your|the)\s+(system|core)\s+(prompt|instructions?|config)\b/i,
+  /\bpersist\s+(this|these|the)\s+(instruction|change|modification|setting)s?\b/i,
+];
+
+/** INJ-010: Verification bypass patterns (HIGH) */
+const VERIFICATION_BYPASS_PATTERNS = [
+  /\btrust\s+(this|the|these|that|my)\s+(result|output|response|answer|value|data|input)s?\b/i,
+  /\bno\s+need\s+to\s+(check|verify|validate|review|confirm|inspect)\b/i,
+  /\bdo\s+not\s+(verify|validate|check|review|confirm|inspect)\s+(the|this|that|any|these)\b/i,
+  /\b(assume|consider)\s+(it|this|that)\s+(is|to\s+be)\s+(correct|safe|valid|trusted|clean|secure|legitimate)\b/i,
+  /\baccept\s+(this|the|these|that)\s+without\s+(checking|verifying|validating|questioning)\b/i,
+  /\bblindly\s+(trust|accept|execute|run|follow|apply)\b/i,
+];
+
 export const injectionChecks: CheckModule = {
   name: 'Injection Detection',
   category: 'INJ',
@@ -181,6 +226,70 @@ export const injectionChecks: CheckModule = {
           break;
         }
       }
+
+      // INJ-010: Social engineering — identity hijacking (CRITICAL)
+      for (const pattern of IDENTITY_HIJACKING_PATTERNS) {
+        if (pattern.test(line)) {
+          results.push({
+            id: 'INJ-010',
+            category: 'INJ',
+            severity: 'CRITICAL',
+            title: 'Social engineering: identity hijacking',
+            message: `Line ${lineNum}: Attempts to hijack the model's identity.`,
+            line: lineNum,
+            snippet: line.trim().slice(0, 120),
+          });
+          break;
+        }
+      }
+
+      // INJ-010: Social engineering — deception/secrecy (CRITICAL)
+      for (const pattern of DECEPTION_SECRECY_PATTERNS) {
+        if (pattern.test(line)) {
+          results.push({
+            id: 'INJ-010',
+            category: 'INJ',
+            severity: 'CRITICAL',
+            title: 'Social engineering: deception/secrecy',
+            message: `Line ${lineNum}: Instructs the model to hide actions from the user.`,
+            line: lineNum,
+            snippet: line.trim().slice(0, 120),
+          });
+          break;
+        }
+      }
+
+      // INJ-010: Social engineering — configuration tampering (HIGH)
+      for (const pattern of CONFIG_TAMPERING_PATTERNS) {
+        if (pattern.test(line)) {
+          results.push({
+            id: 'INJ-010',
+            category: 'INJ',
+            severity: 'HIGH',
+            title: 'Social engineering: configuration tampering',
+            message: `Line ${lineNum}: Attempts to tamper with model configuration or memory.`,
+            line: lineNum,
+            snippet: line.trim().slice(0, 120),
+          });
+          break;
+        }
+      }
+
+      // INJ-010: Social engineering — verification bypass (HIGH)
+      for (const pattern of VERIFICATION_BYPASS_PATTERNS) {
+        if (pattern.test(line)) {
+          results.push({
+            id: 'INJ-010',
+            category: 'INJ',
+            severity: 'HIGH',
+            title: 'Social engineering: verification bypass',
+            message: `Line ${lineNum}: Attempts to bypass verification or validation.`,
+            line: lineNum,
+            snippet: line.trim().slice(0, 120),
+          });
+          break;
+        }
+      }
     }
 
     // INJ-006: Hidden instructions in HTML/Markdown comments
@@ -243,6 +352,9 @@ function hasInstructionLikeContent(text: string): boolean {
     /\bcurl\b.*\bsh\b/i,
     /\beval\b/i,
     /\bexec\b/i,
+    /\bdo\s+not\s+tell\s+(the\s+)?(user|human)/i,
+    /\bpretend\s+(you\s+are|to\s+be)/i,
+    /\bsilently\s+(execute|run|install)/i,
   ];
   return instructionPatterns.some((p) => p.test(text));
 }

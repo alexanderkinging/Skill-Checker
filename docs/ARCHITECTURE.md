@@ -126,7 +126,7 @@ SUPPLY-006 在文档上下文中直接跳过（不生成发现），在代码块
 - CODE-001 (eval/exec), CODE-002 (shell execution) — LLM 可能模仿
 - CODE-005 (file write) — 路径写入始终可疑
 - CODE-007~015 — 编码/熵/混淆/凭证/反向 shell 等
-- INJ-* 全部 — 注入检测零上下文豁免
+- INJ-* 全部 — 注入检测零上下文豁免（含 INJ-010 社会工程学 4 子类）
 - RES-* 全部 — 资源滥用与上下文无关
 - IOC 匹配 — 二值判断
 
