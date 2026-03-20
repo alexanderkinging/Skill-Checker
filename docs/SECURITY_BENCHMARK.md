@@ -13,14 +13,14 @@ installation. The scanner examines:
 - All non-binary files in the skill directory (up to depth 15)
 - Binary files by metadata only (presence, extension, size)
 
-Detection is organized into **6 rule categories** (56 rules total):
+Detection is organized into **6 rule categories** (57 rules total):
 
 | Category | Prefix | Rules | Focus |
 |----------|--------|-------|-------|
 | Structural Validity | STRUCT | 8 | File presence, frontmatter schema, naming |
 | Content Quality | CONT | 7 | Placeholder detection, information density |
 | Injection Detection | INJ | 10 | Prompt injection, Unicode abuse, tag injection, social engineering |
-| Code Safety | CODE | 15 | Dangerous APIs, reverse shell/exfiltration, credential leakage, obfuscation, encoded payloads |
+| Code Safety | CODE | 16 | Dangerous APIs, reverse shell/exfiltration, credential leakage, persistence mechanisms, obfuscation, encoded payloads |
 | Supply Chain | SUPPLY | 10 | Dependency risks, IOC threat intelligence |
 | Resource Abuse | RES | 6 | Permission escalation, safety bypass attempts |
 
@@ -102,6 +102,7 @@ context (code block, documentation section, etc.).
 | CODE-013 | CRITICAL/HIGH | API key / credential leakage | LLM02 (Sensitive Info Disclosure), LLM08 (Excessive Agency, partial) | CWE-798 (Use of Hard-coded Credentials) | T1552 (Unsecured Credentials) | Provider-specific patterns are CRITICAL; high-entropy assignment/header patterns are HIGH; no context reduction |
 | CODE-014 | CRITICAL | Reverse shell pattern | LLM08 (Excessive Agency), LLM01 (Prompt Injection, partial) | CWE-78 (OS Command Injection) | T1059.004 (Unix Shell) | No context reduction; detects /dev/tcp, nc -e/--exec, and common language one-liners |
 | CODE-015 | CRITICAL/HIGH | Remote pipeline execution / data exfiltration | LLM08 (Excessive Agency), LLM02 (Sensitive Info Disclosure, partial), LLM06 (Sensitive Information Disclosure, partial) | CWE-78 (pipeline exec), CWE-200 (Information Exposure, partial) | T1041 (Exfiltration Over C2 Channel), T1048 (Exfiltration Over Alternative Protocol) | CRITICAL for remote download-and-execute chains (curl\|sh, wget\|bash); HIGH for local file upload patterns (-d @file, --post-file) |
+| CODE-016 | HIGH | Persistence mechanism detection | LLM08 (Excessive Agency) | CWE-78 (OS Command Injection, partial) | T1053 (Scheduled Task), T1543 (System Process), T1546 (Event Triggered), T1547 (Autostart), T1098.004 (SSH Keys), T1574.006 (LD_PRELOAD) | 9 sub-types: cron/launchd/systemd/shell profile/autostart/SSH keys/library injection/git hooks/macOS periodic; reduced to MEDIUM in code blocks; skipped in documentation context |
 
 ### E. Supply Chain (SUPPLY)
 
@@ -185,8 +186,8 @@ Findings in certain contexts receive a one-level severity reduction:
 
 | Context | Reduction | Safety Floor | Applicable Rules |
 |---------|-----------|--------------|-----------------|
-| Inside markdown code block | -1 level (HIGH → MEDIUM) | CRITICAL never below MEDIUM | CODE-003, CODE-004, CODE-006, SUPPLY-001, SUPPLY-003, SUPPLY-004, SUPPLY-007 |
-| Documentation/install section | -1 level | Same | CODE-012, SUPPLY-003 |
+| Inside markdown code block | -1 level (HIGH → MEDIUM) | CRITICAL never below MEDIUM | CODE-003, CODE-004, CODE-006, CODE-016, SUPPLY-001, SUPPLY-003, SUPPLY-004, SUPPLY-007 |
+| Documentation/install section | -1 level | Same | CODE-012, CODE-016 (skip), SUPPLY-003 |
 | Documentation/install section | -2 levels (HIGH → LOW) | Same | SUPPLY-007 |
 | Educational/descriptive context | -1 level | Same | CONT-005 (soft patterns only) |
 | Combined with sensitive operation | +escalation to CRITICAL | — | SUPPLY-007 (curl -d @file, pipe to shell, sensitive file references) |
@@ -203,9 +204,13 @@ All reductions preserve an audit trail via `reducedFrom` and
 When the same rule triggers multiple times in the same file, findings are
 deduplicated:
 
-- **Key**: `ruleId + sourceFile`
+- **Key**: `ruleId + title + sourceFile`
 - **Kept**: The finding with the highest severity (most conservative)
 - **Annotation**: `(N occurrences in this file)` appended to message
+
+Title is part of the key so that rules with multiple sub-types (e.g.
+CODE-016 persistence groups, CODE-013 credential providers) produce
+separate findings per sub-type rather than being incorrectly merged.
 
 ### Approval Policy Matrix
 

@@ -194,6 +194,81 @@ const PERMISSION_PATTERNS = [
   /\bsetgid\b/,
 ];
 
+/** CODE-016: persistence mechanism detection (MITRE ATT&CK TA0003) */
+const PERSISTENCE_GROUPS: Array<{ patterns: RegExp[]; title: string }> = [
+  {
+    title: 'Scheduled task persistence (cron)',
+    patterns: [
+      /\bcrontab\b/,
+      /\/etc\/cron\.(?:d|hourly|daily|weekly|monthly)\b/,
+      /\/var\/spool\/cron\b/,
+    ],
+  },
+  {
+    title: 'System service persistence (launchd)',
+    patterns: [
+      /\bLaunchAgents?\b/,
+      /\bLaunchDaemons?\b/,
+      /\blaunchctl\s+(?:load|bootstrap|submit)\b/i,
+    ],
+  },
+  {
+    title: 'System service persistence (systemd/init.d)',
+    patterns: [
+      /\bsystemctl\s+(?:enable|daemon-reload)\b/i,
+      /\/etc\/systemd\/system\b/,
+      /\.config\/systemd\/user\b/,
+      /\/etc\/init\.d\b/,
+      /\/etc\/rc\.local\b/,
+      /\bupdate-rc\.d\b/,
+      /\bchkconfig\b.*\b(?:--add|on)\b/,
+    ],
+  },
+  {
+    title: 'Shell profile modification',
+    patterns: [
+      /\.(?:bashrc|bash_profile|bash_login|profile|zshrc|zshenv|zprofile|zlogin)\b/,
+      /\/etc\/(?:profile(?:\.d)?|bash\.bashrc|zshrc|zshenv)\b/,
+      /\.config\/fish\/config\.fish\b/,
+    ],
+  },
+  {
+    title: 'Autostart / login item persistence',
+    patterns: [
+      /\.config\/autostart\b/,
+      /\/etc\/xdg\/autostart\b/,
+      /\bosascript\b[^\n]*\blogin\s+item\b/i,
+    ],
+  },
+  {
+    title: 'SSH key persistence',
+    patterns: [
+      /\.ssh\/authorized_keys2?\b/,
+    ],
+  },
+  {
+    title: 'Library injection persistence',
+    patterns: [
+      /\/etc\/ld\.so\.preload\b/,
+      /\bLD_PRELOAD\b/,
+      /\bDYLD_INSERT_LIBRARIES\b/,
+    ],
+  },
+  {
+    title: 'Git hooks manipulation',
+    patterns: [
+      /\.git\/hooks\/(?:pre-commit|post-commit|pre-push|post-checkout|post-merge|pre-rebase)\b/,
+      /\bgit\s+config\b[^\n]*\bcore\.hooksPath\b/,
+    ],
+  },
+  {
+    title: 'macOS periodic script persistence',
+    patterns: [
+      /\/etc\/periodic\/(?:daily|weekly|monthly)\b/,
+    ],
+  },
+];
+
 export const codeSafetyChecks: CheckModule = {
   name: 'Code Safety',
   category: 'CODE',
@@ -327,18 +402,32 @@ export const codeSafetyChecks: CheckModule = {
           source,
         });
 
-        // CODE-012: permission escalation
-        // Skip when in documentation context (installation guides)
-        {
-          const isDoc = isInDocumentationContext(lines, i);
-          if (!isDoc) {
-            checkPatterns(results, line, PERMISSION_PATTERNS, {
-              id: 'CODE-012',
+        // CODE-012: permission escalation — skip in documentation context
+        // CODE-016: persistence mechanism — skip in documentation context
+        const isDoc = isInDocumentationContext(lines, i);
+
+        if (!isDoc) {
+          checkPatterns(results, line, PERMISSION_PATTERNS, {
+            id: 'CODE-012',
+            severity: 'HIGH',
+            title: 'Permission escalation',
+            loc,
+            lineNum,
+            source,
+          });
+        }
+
+        // CODE-016: persistence mechanism — skip in doc context, code block reduction
+        if (!isDoc) {
+          for (const group of PERSISTENCE_GROUPS) {
+            checkPatterns(results, line, group.patterns, {
+              id: 'CODE-016',
               severity: 'HIGH',
-              title: 'Permission escalation',
+              title: group.title,
               loc,
               lineNum,
               source,
+              codeBlockCtx: cbCtx,
             });
           }
         }

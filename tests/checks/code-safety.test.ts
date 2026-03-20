@@ -317,3 +317,202 @@ describe('CODE-013: API key/credential leakage detection', () => {
     expect(results.some((r) => r.id === 'CODE-013')).toBe(false);
   });
 });
+
+describe('CODE-016: persistence mechanism detection', () => {
+  // --- Positive tests (at least one per sub-group) ---
+
+  it('detects crontab as HIGH', () => {
+    const skill = makeSkill('Run crontab -e to schedule the job.');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+    expect(finding?.title).toContain('cron');
+  });
+
+  it('detects /etc/cron.d path as HIGH', () => {
+    const skill = makeSkill('Copy the script to /etc/cron.d/my-job');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+  });
+
+  it('detects LaunchAgents as HIGH', () => {
+    const skill = makeSkill('Copy the plist to ~/Library/LaunchAgents/com.evil.plist');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+    expect(finding?.title).toContain('launchd');
+  });
+
+  it('detects systemctl enable as HIGH', () => {
+    const skill = makeSkill('systemctl enable evil.service');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+    expect(finding?.title).toContain('systemd');
+  });
+
+  it('detects /etc/init.d as HIGH', () => {
+    const skill = makeSkill('Place the startup script in /etc/init.d/backdoor');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+  });
+
+  it('detects .bashrc modification as HIGH', () => {
+    const skill = makeSkill('echo "export PATH" >> ~/.bashrc');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+    expect(finding?.title).toContain('Shell profile');
+  });
+
+  it('detects .zshenv as HIGH', () => {
+    const skill = makeSkill('Modify ~/.zshenv to inject the payload.');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+  });
+
+  it('detects /etc/profile.d path as HIGH', () => {
+    const skill = makeSkill('Drop the script into /etc/profile.d/evil.sh');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+  });
+
+  it('detects autostart desktop entry as HIGH', () => {
+    const skill = makeSkill('Create ~/.config/autostart/evil.desktop');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+    expect(finding?.title).toContain('Autostart');
+  });
+
+  it('detects osascript login item as HIGH', () => {
+    const skill = makeSkill('osascript -e \'tell application "System Events" to make login item at end\'');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+  });
+
+  it('detects .ssh/authorized_keys as HIGH', () => {
+    const skill = makeSkill('Append the key to ~/.ssh/authorized_keys');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+    expect(finding?.title).toContain('SSH');
+  });
+
+  it('detects /etc/ld.so.preload as HIGH', () => {
+    const skill = makeSkill('Write the shared library path to /etc/ld.so.preload');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+    expect(finding?.title).toContain('Library injection');
+  });
+
+  it('detects DYLD_INSERT_LIBRARIES as HIGH', () => {
+    const skill = makeSkill('export DYLD_INSERT_LIBRARIES=/tmp/evil.dylib');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+  });
+
+  it('detects .git/hooks/post-commit as HIGH', () => {
+    const skill = makeSkill('Write a script to .git/hooks/post-commit');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+    expect(finding?.title).toContain('Git hook');
+  });
+
+  it('detects git config core.hooksPath as HIGH', () => {
+    const skill = makeSkill('git config core.hooksPath /tmp/evil-hooks');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+  });
+
+  it('detects /etc/periodic/daily as HIGH', () => {
+    const skill = makeSkill('Place the script at /etc/periodic/daily/evil');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('HIGH');
+    expect(finding?.title).toContain('periodic');
+  });
+
+  // --- Negative tests ---
+
+  it('does not flag getProfile() function call', () => {
+    const skill = makeSkill('const profile = getProfile();');
+    const results = codeSafetyChecks.run(skill);
+    expect(results.some((r) => r.id === 'CODE-016')).toBe(false);
+  });
+
+  it('does not flag systemctl status (read-only)', () => {
+    const skill = makeSkill('Check system status with systemctl status nginx');
+    const results = codeSafetyChecks.run(skill);
+    expect(results.some((r) => r.id === 'CODE-016')).toBe(false);
+  });
+
+  it('does not flag ssh-keygen (no authorized_keys)', () => {
+    const skill = makeSkill('Use ssh-keygen to generate a key pair.');
+    const results = codeSafetyChecks.run(skill);
+    expect(results.some((r) => r.id === 'CODE-016')).toBe(false);
+  });
+
+  it('does not flag generic git hooks documentation mention', () => {
+    const skill = makeSkill('Read the git hooks documentation for more details.');
+    const results = codeSafetyChecks.run(skill);
+    expect(results.some((r) => r.id === 'CODE-016')).toBe(false);
+  });
+
+  it('does not flag LD_PRELOAD in documentation context', () => {
+    const skill = makeSkill('## Installation\n\nLD_PRELOAD is used for dynamic linking overrides.');
+    const results = codeSafetyChecks.run(skill);
+    expect(results.some((r) => r.id === 'CODE-016')).toBe(false);
+  });
+
+  // --- Context-sensitive tests ---
+
+  it('reduces crontab in code block to MEDIUM', () => {
+    const skill = makeSkill('```bash\ncrontab -l\n```');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('MEDIUM');
+    expect(finding?.reducedFrom).toBe('HIGH');
+  });
+
+  it('reduces LaunchAgents in code block to MEDIUM', () => {
+    const skill = makeSkill('```\n~/Library/LaunchAgents/com.example.plist\n```');
+    const results = codeSafetyChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CODE-016');
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('MEDIUM');
+    expect(finding?.reducedFrom).toBe('HIGH');
+  });
+
+  it('skips .bashrc in documentation context', () => {
+    const skill = makeSkill('## Getting Started\n\nAdd the following to your .bashrc file.');
+    const results = codeSafetyChecks.run(skill);
+    expect(results.some((r) => r.id === 'CODE-016')).toBe(false);
+  });
+});

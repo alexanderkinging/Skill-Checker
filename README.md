@@ -4,7 +4,7 @@ Security checker for Claude Code skills — detect injection, malicious code, an
 
 ## Features
 
-- **56 security rules** across 6 categories: structural validity, content quality, injection detection, code safety, supply chain, and resource abuse
+- **57 security rules** across 6 categories: structural validity, content quality, injection detection, code safety, supply chain, and resource abuse
 - **Scoring system**: Grade A–F with 0–100 score
 - **Dual entry**: CLI tool + PreToolUse hook for automatic interception
 - **Configurable policies**: strict / balanced / permissive approval strategies
@@ -14,7 +14,7 @@ Security checker for Claude Code skills — detect injection, malicious code, an
 
 ## Security Standard & Benchmark
 
-Skill Checker's 56 rules are aligned with established security frameworks including OWASP Top 10 for LLM Applications (2025), MITRE CWE, and MITRE ATT&CK. The tool ships with a reproducible benchmark dataset of six fixture skills covering all rule categories. This alignment is an internal mapping exercise — Skill Checker does not claim third-party certification or external audit status.
+Skill Checker's 57 rules are aligned with established security frameworks including OWASP Top 10 for LLM Applications (2025), MITRE CWE, and MITRE ATT&CK. The tool ships with a reproducible benchmark dataset of six fixture skills covering all rule categories. This alignment is an internal mapping exercise — Skill Checker does not claim third-party certification or external audit status.
 
 See [docs/SECURITY_BENCHMARK.md](docs/SECURITY_BENCHMARK.md) for the full rule mapping matrix, benchmark methodology, scoring model, and known limitations.
 
@@ -165,7 +165,7 @@ Config is resolved in order: CLI `--config` flag → project directory (walks up
 | Structural (STRUCT) | 8 | Missing SKILL.md, invalid frontmatter, binary files |
 | Content (CONT) | 7 | Placeholder text, lorem ipsum, promotional content |
 | Injection (INJ) | 10 | Zero-width chars, prompt override, tag injection, social engineering, encoded payloads |
-| Code Safety (CODE) | 15 | eval/exec, shell execution, reverse shell, data exfiltration, API key leakage, rm -rf, obfuscation |
+| Code Safety (CODE) | 16 | eval/exec, shell execution, reverse shell, data exfiltration, API key leakage, persistence mechanisms, rm -rf, obfuscation |
 | Supply Chain (SUPPLY) | 10 | Unknown MCP servers, suspicious domains, malicious hashes, typosquat |
 | Resource Abuse (RES) | 6 | Unrestricted tool access, disable safety checks, ignore project rules |
 

@@ -98,13 +98,14 @@ hook/                     # 项目根目录
 
 ### 代码块降级规则
 
-仅 7 条规则在 markdown 代码块内降级:
+仅 8 条规则在 markdown 代码块内降级:
 
 | 规则 | 原始 | 降级后 |
 |------|------|--------|
 | CODE-003 (rm -rf) | CRITICAL | HIGH |
 | CODE-004 (requests.get) | HIGH | MEDIUM |
 | CODE-006 (process.env) | MEDIUM | LOW |
+| CODE-016 (persistence) | HIGH | MEDIUM |
 | SUPPLY-001 (MCP server ref) | HIGH | MEDIUM |
 | SUPPLY-003 (npm/pip install) | HIGH | MEDIUM (or LOW in doc code block) |
 | SUPPLY-004 (Non-HTTPS URL) | HIGH/MEDIUM | 降一级 |
@@ -132,7 +133,7 @@ SUPPLY-006 在文档上下文中直接跳过（不生成发现），在代码块
 
 ### 同文件同规则去重 (scanner.ts)
 
-去重键: `ruleId + sourceFile`，保留组内最高严重度，设置 `occurrences` 计数。
+去重键: `ruleId + title + sourceFile`，保留组内最高严重度，设置 `occurrences` 计数。title 参与去重确保同 ID 不同子类（如 CODE-016 的 9 个持久化类型、CODE-013 的多种凭证类型）不会被错误合并。
 
 ## 特殊检测逻辑
 

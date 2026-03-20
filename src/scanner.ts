@@ -93,8 +93,12 @@ function buildReport(
 }
 
 /**
- * Deduplicate results: same rule ID + same source → single finding.
+ * Deduplicate results: same rule ID + same title + same source → single finding.
  * Keeps the highest severity (most conservative). Sets occurrences count.
+ *
+ * Title is included in the key so that rules with multiple sub-types
+ * (e.g. CODE-016 persistence groups, CODE-013 credential providers)
+ * are not incorrectly merged within the same file.
  *
  * Key uses the structural `source` field when available.
  * Falls back to `category + line` when source is absent, to avoid
@@ -109,7 +113,7 @@ function deduplicateResults(results: CheckResult[]): CheckResult[] {
   for (const r of results) {
     // Prefer structural source; fall back to category+line for uniqueness
     const sourceKey = r.source ?? `_no_source_:${r.category}:${r.line ?? ''}`;
-    const key = `${r.id}::${sourceKey}`;
+    const key = `${r.id}::${r.title}::${sourceKey}`;
     const group = groups.get(key);
     if (group) {
       group.push(r);

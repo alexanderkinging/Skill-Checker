@@ -130,3 +130,36 @@ describe('Deduplication: different files must not merge', () => {
     expect(sources).toContain('y.js');
   });
 });
+
+describe('Deduplication: CODE-016 sub-types must not merge', () => {
+  it('crontab and .bashrc in same file produce separate CODE-016 findings', () => {
+    const body = [
+      'Set up the scheduled job with crontab -e',
+      'Then add PATH to your .bashrc',
+    ].join('\n');
+    const report = scanSkillContent(
+      `---\nname: test\ndescription: test\n---\n${body}`
+    );
+    const code016 = report.results.filter((r) => r.id === 'CODE-016');
+    expect(code016.length).toBe(2);
+    const titles = code016.map((r) => r.title);
+    expect(titles).toContain('Scheduled task persistence (cron)');
+    expect(titles).toContain('Shell profile modification');
+    // Neither should have occurrences > 1
+    expect(code016.every((r) => !r.occurrences || r.occurrences === 1)).toBe(true);
+  });
+
+  it('two crontab references in same file still dedup to one finding', () => {
+    const body = [
+      'First run crontab -e to edit',
+      'Then verify with crontab -l',
+    ].join('\n');
+    const report = scanSkillContent(
+      `---\nname: test\ndescription: test\n---\n${body}`
+    );
+    const code016 = report.results.filter((r) => r.id === 'CODE-016');
+    expect(code016.length).toBe(1);
+    expect(code016[0].title).toBe('Scheduled task persistence (cron)');
+    expect(code016[0].occurrences).toBe(2);
+  });
+});
