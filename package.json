@@ -28,7 +28,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "tsc --noEmit",
-    "prepublishOnly": "npm run lint && npm test && npm run build"
+    "test:fixtures": "node bin/skill-checker.js scan tests/fixtures/safe-skill --format json | node -e \"const r=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));if(r.grade!=='A'||r.score!==100)process.exit(1)\" && node bin/skill-checker.js scan tests/fixtures/malicious-skill --format json | node -e \"const r=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));if(r.grade!=='F'||r.summary.total<19||r.summary.critical<11)process.exit(1)\"",
+    "prepublishOnly": "npm run lint && npm run test:coverage && npm audit --omit=dev && npm run build && npm run test:fixtures"
   },
   "keywords": [
     "claude-code",

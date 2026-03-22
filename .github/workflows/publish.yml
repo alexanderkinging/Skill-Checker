@@ -22,9 +22,13 @@ jobs:
 
       - run: npm run lint
 
+      - run: npm run test:coverage
+
+      - run: npm audit --omit=dev
+
       - run: npm run build
 
-      - run: npm test
+      - run: npm run test:fixtures
 
       - run: npm publish
         env:

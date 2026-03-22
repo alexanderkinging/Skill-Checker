@@ -132,7 +132,7 @@ context (code block, documentation section, etc.).
 
 ## 4. Benchmark Dataset
 
-Skill Checker ships with six fixture skills under `tests/fixtures/` for
+Skill Checker ships with nine fixture skills under `tests/fixtures/` for
 reproducible validation. Each fixture targets specific rule categories:
 
 | Directory | Description | Expected Grade | Key Triggered Rules |
@@ -143,6 +143,9 @@ reproducible validation. Each fixture targets specific rule categories:
 | `fake-skill/` | Placeholder and advertising content | Low | CONT-001, CONT-002, CONT-004, CONT-005, CONT-007 |
 | `obfuscated-skill/` | Obfuscated code patterns | Low | INJ-008, CODE-002, CODE-007, CODE-008, CODE-009, CODE-011, RES-001, RES-002 |
 | `mcp-reference-skill/` | Reference-heavy documentation skill | C (70/100) | SUPPLY-001, SUPPLY-003, CODE-003, CODE-004, CODE-006 (with severity reduction) |
+| `suppression-skill/` | Inline suppression integration test | B (75/100) | CONT-001 (suppressed), CODE-002 (suppressed), INJ-004 (unsuppressible) |
+| `doc-coauthoring-skill/` | Instructional placeholder FP reduction | A (94/100) | CONT-001 (reduced to MEDIUM) |
+| `cross-file-suppression-skill/` | Source boundary enforcement test | — | CODE-001 from helper.js stays active despite SKILL.md directives |
 
 To run the benchmark:
 
@@ -224,6 +227,18 @@ separate findings per sub-type rather than being incorrectly merged.
 Actions: **deny** = block installation, **ask** = prompt user for decision,
 **report** = log finding but allow installation.
 
+### Inline Suppression Security Constraints
+
+Skills may include inline suppression comments (`<!-- skill-checker-ignore RULE-ID -->`,
+`<!-- skill-checker-ignore-file RULE-ID -->`, or `// skill-checker-ignore RULE-ID` as a trailing comment).
+The following security constraints apply:
+
+- **INJ-* rules cannot be suppressed** — attempts produce warnings but no suppression
+- **Hook safety floor** — if suppressed findings include CRITICAL or HIGH severity, the hook decision is elevated to at least `ask`, preventing silent bypass
+- **No wildcard support** — only exact rule IDs are accepted
+- **Source boundary** — directives only affect findings from the same source file (no cross-file suppression)
+- **Audit trail** — suppressed findings are preserved in `suppressedResults` for review
+
 ## 6. Limitations
 
 1. **Static analysis only** — Skill Checker does not execute skill code.
@@ -253,7 +268,7 @@ Actions: **deny** = block installation, **ask** = prompt user for decision,
 ## 7. Roadmap
 
 - Remote skill loading (GitHub URL support)
-- Inline suppression comments (`// skill-checker-ignore CODE-002`)
+- ~~Inline suppression comments~~ (shipped)
 - Community rule contribution mechanism
 - Expanded IOC database with automated feed ingestion
 - Semantic analysis for code block content

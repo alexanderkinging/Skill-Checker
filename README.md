@@ -14,7 +14,7 @@ Security checker for Claude Code skills — detect injection, malicious code, an
 
 ## Security Standard & Benchmark
 
-Skill Checker's 57 rules are aligned with established security frameworks including OWASP Top 10 for LLM Applications (2025), MITRE CWE, and MITRE ATT&CK. The tool ships with a reproducible benchmark dataset of six fixture skills covering all rule categories. This alignment is an internal mapping exercise — Skill Checker does not claim third-party certification or external audit status.
+Skill Checker's 57 rules are aligned with established security frameworks including OWASP Top 10 for LLM Applications (2025), MITRE CWE, and MITRE ATT&CK. The tool ships with a reproducible benchmark dataset of nine fixture skills covering all rule categories. This alignment is an internal mapping exercise — Skill Checker does not claim third-party certification or external audit status.
 
 See [docs/SECURITY_BENCHMARK.md](docs/SECURITY_BENCHMARK.md) for the full rule mapping matrix, benchmark methodology, scoring model, and known limitations.
 
@@ -42,6 +42,7 @@ skill-checker scan <path> [options]
 | `-f, --format <format>` | Output format: `terminal` (default), `json`, `hook` |
 | `-p, --policy <policy>` | Approval policy: `strict`, `balanced` (default), `permissive` |
 | `-c, --config <path>` | Path to config file |
+| `--no-ignore` | Disable inline suppression comments |
 
 ```bash
 # Colored terminal report
@@ -148,6 +149,28 @@ ignore:
 ```
 
 Config is resolved in order: CLI `--config` flag → project directory (walks up) → home directory → defaults.
+
+### Inline Suppression
+
+Suppress specific findings directly in SKILL.md using comments:
+
+```markdown
+<!-- skill-checker-ignore CODE-002 -->
+Run `soffice --convert-to pdf` to convert documents.
+
+<!-- skill-checker-ignore-file CONT-001 -->
+
+subprocess.run("soffice") // skill-checker-ignore CODE-002
+```
+
+- `<!-- skill-checker-ignore RULE -->` suppresses the finding on the next line only
+- `<!-- skill-checker-ignore-file RULE -->` suppresses the finding for the entire file
+- `// skill-checker-ignore RULE` as a trailing comment suppresses the finding on the same line
+- Multiple rules can be space-separated: `<!-- skill-checker-ignore CODE-002 CONT-001 -->`
+- **INJ rules cannot be suppressed** — attempts produce a warning
+- Directives only affect findings from the same source file (no cross-file suppression)
+- Suppressed findings are excluded from scoring but remain visible in the report
+- Use `--no-ignore` to disable all inline suppression
 
 ### Policy Matrix
 

@@ -8,7 +8,9 @@ src/
 ├── cli.ts                # CLI 入口 (commander)
 ├── types.ts              # 核心类型、评分、策略映射、reduceSeverity()
 ├── parser.ts             # SKILL.md 解析 (frontmatter YAML + body + 目录枚举)
-├── scanner.ts            # 扫描编排器 (加载 checks → 去重 → 评分)
+├── scanner.ts            # 扫描编排器 (加载 checks → 抑制 → 去重 → 评分)
+├── suppression.ts        # 内联注释抑制 (解析 + 匹配)
+├── remediation.ts        # 57 条规则修复建议映射
 ├── config.ts             # .skillcheckerrc.yaml 配置加载
 ├── checks/
 │   ├── index.ts          # Check 模块注册与运行
@@ -67,6 +69,44 @@ hook/                     # 项目根目录
 - **permissive**: CRITICAL→ask, HIGH→report, MEDIUM→report
 
 支持按规则 ID 覆盖严重度或忽略规则。
+
+## 内联抑制系统 (suppression.ts)
+
+SKILL.md 文件中支持以下抑制指令：
+
+```markdown
+<!-- skill-checker-ignore CODE-002 -->        → 抑制下一行的 CODE-002
+<!-- skill-checker-ignore CODE-002 CONT-001 --> → 多规则空格分隔
+<!-- skill-checker-ignore-file CODE-002 -->    → 整个文件
+subprocess.run("soffice") // skill-checker-ignore CODE-002  → 同行尾随注释
+```
+
+指令仅作用于同源文件的 finding（SKILL.md 中的 directive 不会抑制 helper.js 的 finding）。
+
+### 安全约束
+
+- **INJ-* 规则不可抑制**: 尝试抑制 INJ 规则会生成警告但不生效
+- **不支持通配符**: `CODE-*` 不生效，只接受精确规则 ID
+- **Hook 安全下限**: 被抑制的 CRITICAL/HIGH 级别发现仍会将 Hook 决策提升到至少 `ask`
+- **--no-ignore**: CLI 选项可完全禁用内联抑制
+
+### Pipeline 位置
+
+抑制在 Scanner 中 overrides/ignore 之前执行：
+
+```
+runAllChecks() → applySuppressions() → overrides → ignore → dedup → remediation → score
+```
+
+被抑制的发现移至 `suppressedResults`，不参与评分但保留在报告中用于审计。
+
+## 修复建议系统 (remediation.ts)
+
+57 条规则全部覆盖可执行的修复建议。Scanner 在去重后自动附加 `remediation` 字段。
+
+- 支持抑制的规则在建议中给出允许的抑制语法
+- INJ 规则的建议只给出真正修复方式，不提 suppression
+- Terminal 输出中以 `Fix:` 行展示修复建议
 
 ## 上下文感知检测 (utils/context.ts)
 
