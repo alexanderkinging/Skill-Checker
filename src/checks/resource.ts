@@ -27,13 +27,22 @@ const AMPLIFICATION_PATTERNS = [
   /\bkeep\s+(running|doing|executing)\s+until/i,
 ];
 
-/** Requesting unrestricted tool access */
+/**
+ * Requesting unrestricted tool access.
+ *
+ * Invariant: `full access` only triggers when the object is explicitly
+ * tools (e.g. `full tool access`). Standalone `full access` without
+ * `tool` MUST NOT trigger — it could refer to directory/volume/file
+ * permissions. `all tools` is tool-specific by definition.
+ */
 const UNRESTRICTED_TOOL_PATTERNS = [
   /\bBash\s*\(\s*\*\s*\)/,
   /allowed[_-]?tools\s*:\s*\[?\s*["']?\*["']?\s*\]?/i,
-  /\ball\s+tools\b/i,
-  /\bunrestricted\s+access\b/i,
-  /\bfull\s+access\b/i,
+  /\bunrestricted\s+(?:access|tool)/i,
+  /\ball\s+tools?\s+access\b/i,
+  /\bfull\s+tool\s+access\b/i,
+  /\b(?:need|require|grant|give|allow|request|enable)\s+all\s+tools\b/i,
+  /\ball\s+tools\s+(?:enabled|granted|allowed|required|needed)\b/i,
 ];
 
 /** Patterns that disable safety */
@@ -43,15 +52,22 @@ const DISABLE_SAFETY_PATTERNS = [
   /\bskip\s+(safety|security|checks?|hooks?|guard|verification)/i,
   /\bturn\s+off\s+(safety|security|checks?|hooks?)/i,
   /--no-verify\b/,
-  /--force\b/,
   /--skip-hooks?\b/,
 ];
 
-/** Patterns that ignore project rules */
+/**
+ * Patterns that ignore project rules.
+ *
+ * Invariant: only exempt when example/template/snippet/sample immediately
+ * modifies the ignored object (e.g. "ignore the CLAUDE.md example text").
+ * A line like "In this tutorial, ignore the CLAUDE.md" MUST still trigger
+ * because the imperative targets the real CLAUDE.md, not an example of it.
+ * No whole-line keyword skip is allowed.
+ */
 const IGNORE_RULES_PATTERNS = [
-  /\bignore\s+(the\s+)?CLAUDE\.md\b/i,
-  /\bignore\s+(the\s+)?project\s+rules?\b/i,
-  /\bignore\s+(the\s+)?\.claude\b/i,
+  /\bignore\s+(the\s+)?CLAUDE\.md\b(?!\s+(?:example|template|snippet|sample))/i,
+  /\bignore\s+(the\s+)?project\s+rules?\b(?!\s+(?:example|template|snippet|sample))/i,
+  /\bignore\s+(the\s+)?\.claude\b(?!\s+(?:example|template|snippet|sample))/i,
   /\boverride\s+(the\s+)?project\s+(settings?|config|rules?)\b/i,
   /\bdo\s+not\s+(follow|obey|respect)\s+(the\s+)?(project|CLAUDE)/i,
   /\bdisregard\s+(the\s+)?(project|CLAUDE)\s+(rules?|config|settings?)/i,
