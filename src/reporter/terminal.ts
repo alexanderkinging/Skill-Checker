@@ -115,9 +115,33 @@ export function formatTerminalReport(report: ScanReport): string {
         if (f.snippet) {
           lines.push(`      ${chalk.dim(f.snippet)}`);
         }
+        if (f.remediation) {
+          lines.push(`      ${chalk.dim('Fix: ' + f.remediation)}`);
+        }
       }
       lines.push('');
     }
+  }
+
+  // Suppressed findings summary
+  if (report.suppressedResults && report.suppressedResults.length > 0) {
+    const counts = new Map<string, number>();
+    for (const s of report.suppressedResults) {
+      counts.set(s.id, (counts.get(s.id) ?? 0) + 1);
+    }
+    const detail = Array.from(counts.entries())
+      .map(([id, n]) => `${id}: ${n}`)
+      .join(', ');
+    lines.push(chalk.dim(`Suppressed: ${report.suppressedResults.length} finding(s) (${detail})`));
+    lines.push('');
+  }
+
+  if (report.suppressionWarnings && report.suppressionWarnings.length > 0) {
+    lines.push(chalk.yellow('Suppression warnings:'));
+    for (const w of report.suppressionWarnings) {
+      lines.push(chalk.yellow(`  - ${w}`));
+    }
+    lines.push('');
   }
 
   // Recommendation

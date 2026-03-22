@@ -14,6 +14,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+// ===== Suppression =====
+
+/** Inline suppression directive parsed from SKILL.md comments */
+export interface SuppressionDirective {
+  ruleIds: string[];          // exact IDs, no wildcard
+  scope: 'next-line' | 'file' | 'same-line';
+  line: number;               // comment's own line number (1-based in raw file)
+  source: string;             // source file the directive belongs to (e.g. 'SKILL.md')
+}
+
 // ===== Severity & Scoring =====
 
 export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
@@ -56,6 +66,8 @@ export interface CheckResult {
   source?: string;       // structured source file path (e.g. "SKILL.md", "lib/helper.js")
   reducedFrom?: Severity; // original severity before context-aware reduction
   occurrences?: number;   // count after per-file deduplication
+  suppressed?: boolean;   // true when suppressed by inline directive
+  remediation?: string;   // actionable fix guidance
 }
 
 // ===== Severity Reduction =====
@@ -143,6 +155,8 @@ export interface ScanReport {
     medium: number;
     low: number;
   };
+  suppressedResults?: CheckResult[];
+  suppressionWarnings?: string[];
 }
 
 // ===== Check Module Interface =====
@@ -162,6 +176,7 @@ export interface SkillCheckerConfig {
   policy: PolicyLevel;
   overrides: Record<string, Severity>;
   ignore: string[];
+  noIgnoreInline?: boolean;  // CLI --no-ignore: skip inline suppression
 }
 
 export const DEFAULT_CONFIG: SkillCheckerConfig = {

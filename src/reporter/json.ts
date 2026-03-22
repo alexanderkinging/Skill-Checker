@@ -40,11 +40,25 @@ export function generateHookResponse(
 ): HookResponse {
   const worst = worstSeverity(report.results);
 
-  if (!worst) {
+  // Safety floor: suppressed CRITICAL/HIGH findings still require at least "ask"
+  const suppressedWorst = report.suppressedResults
+    ? worstSeverity(report.suppressedResults)
+    : null;
+  const hasSuppressedCriticalOrHigh =
+    suppressedWorst === 'CRITICAL' || suppressedWorst === 'HIGH';
+
+  if (!worst && !hasSuppressedCriticalOrHigh) {
     return { permissionDecision: 'allow' };
   }
 
-  const action: HookAction = getHookAction(config.policy, worst);
+  let action: HookAction = worst
+    ? getHookAction(config.policy, worst)
+    : 'report';
+
+  // Floor: suppressed CRITICAL/HIGH → at least ask
+  if (hasSuppressedCriticalOrHigh && (action === 'report' || !worst)) {
+    action = 'ask';
+  }
 
   switch (action) {
     case 'deny':

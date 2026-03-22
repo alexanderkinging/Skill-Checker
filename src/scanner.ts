@@ -24,6 +24,8 @@ import type {
   ParsedSkill,
 } from './types.js';
 import { SEVERITY_SCORES, computeGrade, DEFAULT_CONFIG } from './types.js';
+import { parseSuppressionDirectives, applySuppressions } from './suppression.js';
+import { getRemediation } from './remediation.js';
 
 /**
  * Scan a skill directory and produce a security report.
@@ -54,6 +56,17 @@ function buildReport(
   // Run all checks
   let results = runAllChecks(skill);
 
+  // Inline suppression (before overrides — suppressed findings skip scoring)
+  let suppressedResults: CheckResult[] = [];
+  let suppressionWarnings: string[] = [];
+  if (!config.noIgnoreInline) {
+    const directives = parseSuppressionDirectives(skill.raw.split('\n'));
+    const sr = applySuppressions(results, directives, skill.bodyStartLine);
+    results = sr.active;
+    suppressedResults = sr.suppressed;
+    suppressionWarnings = sr.warnings;
+  }
+
   // Apply severity overrides
   results = results.map((r) => {
     if (config.overrides[r.id]) {
@@ -67,6 +80,12 @@ function buildReport(
 
   // Deduplicate: same rule + same source file → single finding with occurrences count
   results = deduplicateResults(results);
+
+  // Attach remediation guidance
+  results = results.map((r) => {
+    const rem = getRemediation(r.id);
+    return rem ? { ...r, remediation: rem.guidance } : r;
+  });
 
   // Calculate score
   const score = calculateScore(results);
@@ -89,6 +108,8 @@ function buildReport(
     score,
     grade,
     summary,
+    suppressedResults,
+    suppressionWarnings,
   };
 }
 
@@ -103,6 +124,11 @@ function buildReport(
  * Key uses the structural `source` field when available.
  * Falls back to `category + line` when source is absent, to avoid
  * merging unrelated findings under a shared "unknown" bucket.
+ *
+ * Line-level findings (those with a `line` number) in the main SKILL.md
+ * are never merged — each distinct location is a separate attack surface.
+ * Merging only applies to companion files where the same pattern may
+ * appear many times (e.g. repeated eval() calls in a .js helper).
  */
 function deduplicateResults(results: CheckResult[]): CheckResult[] {
   const groups = new Map<string, CheckResult[]>();
@@ -113,7 +139,14 @@ function deduplicateResults(results: CheckResult[]): CheckResult[] {
   for (const r of results) {
     // Prefer structural source; fall back to category+line for uniqueness
     const sourceKey = r.source ?? `_no_source_:${r.category}:${r.line ?? ''}`;
-    const key = `${r.id}::${r.title}::${sourceKey}`;
+    // INJ/RES line-level findings in SKILL.md: each line is a distinct attack surface.
+    // CONT/CODE/SUPPLY/STRUCT may legitimately merge same-rule findings in one file.
+    const isSecurityLineLevel =
+      r.source === 'SKILL.md' &&
+      r.line !== undefined &&
+      (r.category === 'INJ' || r.category === 'RES');
+    const lineKey = isSecurityLineLevel ? `:${r.line}` : '';
+    const key = `${r.id}::${r.title}::${sourceKey}${lineKey}`;
     const group = groups.get(key);
     if (group) {
       group.push(r);

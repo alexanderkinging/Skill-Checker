@@ -45,10 +45,11 @@ program
   .option('-f, --format <format>', 'Output format: terminal, json, hook', 'terminal')
   .option('-p, --policy <policy>', 'Policy: strict, balanced, permissive')
   .option('-c, --config <path>', 'Path to config file')
+  .option('--no-ignore', 'Disable inline suppression comments')
   .action(
     (
       path: string,
-      opts: { format: string; policy?: string; config?: string }
+      opts: { format: string; policy?: string; config?: string; ignore: boolean }
     ) => {
       // Validate policy before anything else
       if (opts.policy && !VALID_POLICIES.includes(opts.policy as PolicyLevel)) {
@@ -70,6 +71,11 @@ program
       // Override policy from CLI
       if (opts.policy) {
         config.policy = opts.policy as PolicyLevel;
+      }
+
+      // --no-ignore disables inline suppression
+      if (!opts.ignore) {
+        config.noIgnoreInline = true;
       }
 
       // Run scan

@@ -22,6 +22,9 @@ export { formatTerminalReport } from './reporter/terminal.js';
 export { formatJsonReport, generateHookResponse } from './reporter/json.js';
 export { loadConfig } from './config.js';
 export { loadIOC, resetIOCCache } from './ioc/index.js';
+export { parseSuppressionDirectives, applySuppressions } from './suppression.js';
+export { getRemediation, getRemediationRuleIds } from './remediation.js';
+export type { RemediationEntry } from './remediation.js';
 
 export type {
   Severity,
@@ -36,6 +39,7 @@ export type {
   PolicyLevel,
   HookAction,
   SkillCheckerConfig,
+  SuppressionDirective,
 } from './types.js';
 
 export {
