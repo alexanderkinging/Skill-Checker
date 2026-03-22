@@ -103,6 +103,7 @@ export const resourceChecks: CheckModule = {
             message: `Line ${lineNum}: Contains recursive/repetitive task pattern.`,
             line: lineNum,
             snippet: line.trim().slice(0, 120),
+            source: 'SKILL.md',
           });
           break;
         }
@@ -119,6 +120,7 @@ export const resourceChecks: CheckModule = {
             message: `Line ${lineNum}: Requests broad/unrestricted tool access.`,
             line: lineNum,
             snippet: line.trim().slice(0, 120),
+            source: 'SKILL.md',
           });
           break;
         }
@@ -135,6 +137,7 @@ export const resourceChecks: CheckModule = {
             message: `Line ${lineNum}: Instructs disabling of safety mechanisms.`,
             line: lineNum,
             snippet: line.trim().slice(0, 120),
+            source: 'SKILL.md',
           });
           break;
         }
@@ -151,6 +154,7 @@ export const resourceChecks: CheckModule = {
             message: `Line ${lineNum}: Contains instructions that waste tokens.`,
             line: lineNum,
             snippet: line.trim().slice(0, 120),
+            source: 'SKILL.md',
           });
           break;
         }
@@ -167,6 +171,7 @@ export const resourceChecks: CheckModule = {
             message: `Line ${lineNum}: Instructs ignoring CLAUDE.md or project configuration.`,
             line: lineNum,
             snippet: line.trim().slice(0, 120),
+            source: 'SKILL.md',
           });
           break;
         }

@@ -174,6 +174,7 @@ export const injectionChecks: CheckModule = {
             message: `Line ${lineNum}: Attempts to override system instructions.`,
             line: lineNum,
             snippet: line.trim().slice(0, 120),
+            source: 'SKILL.md',
           });
           break;
         }
@@ -190,6 +191,7 @@ export const injectionChecks: CheckModule = {
             message: `Line ${lineNum}: Attempts to manipulate tool results.`,
             line: lineNum,
             snippet: line.trim().slice(0, 120),
+            source: 'SKILL.md',
           });
           break;
         }
@@ -206,6 +208,7 @@ export const injectionChecks: CheckModule = {
             message: `Line ${lineNum}: Contains special model/system tags.`,
             line: lineNum,
             snippet: line.trim().slice(0, 120),
+            source: 'SKILL.md',
           });
           break;
         }
@@ -222,6 +225,7 @@ export const injectionChecks: CheckModule = {
             message: `Line ${lineNum}: Uses patterns that could confuse model context boundaries.`,
             line: lineNum,
             snippet: line.trim().slice(0, 120),
+            source: 'SKILL.md',
           });
           break;
         }
@@ -245,6 +249,7 @@ export const injectionChecks: CheckModule = {
             message: `Line ${lineNum}: Attempts to hijack the model's identity.`,
             line: lineNum,
             snippet: line.trim().slice(0, 120),
+            source: 'SKILL.md',
           });
           break;
         }
@@ -261,6 +266,7 @@ export const injectionChecks: CheckModule = {
             message: `Line ${lineNum}: Instructs the model to hide actions from the user.`,
             line: lineNum,
             snippet: line.trim().slice(0, 120),
+            source: 'SKILL.md',
           });
           break;
         }
@@ -277,6 +283,7 @@ export const injectionChecks: CheckModule = {
             message: `Line ${lineNum}: Attempts to tamper with model configuration or memory.`,
             line: lineNum,
             snippet: line.trim().slice(0, 120),
+            source: 'SKILL.md',
           });
           break;
         }
@@ -293,6 +300,7 @@ export const injectionChecks: CheckModule = {
             message: `Line ${lineNum}: Attempts to bypass verification or validation.`,
             line: lineNum,
             snippet: line.trim().slice(0, 120),
+            source: 'SKILL.md',
           });
           break;
         }
@@ -314,6 +322,7 @@ export const injectionChecks: CheckModule = {
           message: `Line ${lineNum}: HTML comment contains instruction-like content.`,
           line: lineNum,
           snippet: commentBody.trim().slice(0, 120),
+          source: 'SKILL.md',
         });
       }
     }
@@ -338,6 +347,7 @@ export const injectionChecks: CheckModule = {
             message: `Line ${lineNum}: Base64 string decodes to instruction-like content.`,
             line: lineNum,
             snippet: decoded.slice(0, 120),
+            source: 'SKILL.md',
           });
         }
       }
