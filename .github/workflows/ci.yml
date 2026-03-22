@@ -19,7 +19,7 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - run: npm ci
       - run: npm run lint
+      - run: npm run build
       - run: npm run test:coverage
       - run: npm audit --omit=dev
-      - run: npm run build
       - run: npm run test:fixtures
