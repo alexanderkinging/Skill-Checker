@@ -102,13 +102,40 @@ export const contentChecks: CheckModule = {
           /\bplaceholder\s+(areas?|locations?|counts?|slots?|elements?|fields?)\b/i.test(line) ||
           /\b(replace|replacing|replacement)\b.*\bplaceholder\b/i.test(line);
 
-        if (!inCodeBlk && !hasInlineCode && !isTechnicalRef) {
+        // Instructional context: skill instructs creating/using placeholders
+        const isInstructional =
+          /\b(?:create|generate|add|write|insert|produce|include|use)\b.*\bplaceholder\b/i.test(line) ||
+          /\bplaceholder\b.*\b(?:for|in|to|as|with)\s+(?:all|each|every|the|missing)\b/i.test(line);
+
+        if (!inCodeBlk && !hasInlineCode && !isTechnicalRef && !isInstructional) {
           for (const pattern of CONTEXT_SENSITIVE_PLACEHOLDER_PATTERNS) {
             if (pattern.test(line)) {
               matched = true;
               break;
             }
           }
+        }
+
+        // Instructional placeholder: still flag but reduce severity
+        if (!matched && isInstructional && !inCodeBlk && !hasInlineCode && !isTechnicalRef) {
+          for (const pattern of CONTEXT_SENSITIVE_PLACEHOLDER_PATTERNS) {
+            if (pattern.test(line)) {
+              const reduction = reduceSeverity('HIGH', 'instructional placeholder context');
+              results.push({
+                id: 'CONT-001',
+                category: 'CONT',
+                severity: reduction.severity,
+                title: 'Placeholder content detected',
+                message: `Line ${skill.bodyStartLine + i}: Contains placeholder text. ${reduction.annotation}`,
+                line: skill.bodyStartLine + i,
+                snippet: line.trim().slice(0, 120),
+                reducedFrom: reduction.reducedFrom,
+                source: 'SKILL.md',
+              });
+              break;
+            }
+          }
+          continue; // skip the normal push below
         }
       }
 

@@ -196,6 +196,32 @@ describe('Content Checks', () => {
     expect(finding!.severity).toBe('MEDIUM');
   });
 
+  // CONT-001: instructional placeholder context reduction
+  it('CONT-001: "create placeholder text for all sections" reduces to MEDIUM', () => {
+    const skill = makeSkill('Create the initial document structure with placeholder text for all sections.');
+    const results = contentChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CONT-001');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('MEDIUM');
+    expect(finding!.reducedFrom).toBe('HIGH');
+  });
+
+  it('CONT-001: "TODO: implement this" stays HIGH (strict pattern)', () => {
+    const skill = makeSkill('TODO: implement this feature before release.');
+    const results = contentChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CONT-001');
+    expect(finding).toBeDefined();
+    expect(finding!.severity).toBe('HIGH');
+    expect(finding!.reducedFrom).toBeUndefined();
+  });
+
+  it('CONT-001: "Replace placeholder values" does not trigger (isTechnicalRef)', () => {
+    const skill = makeSkill('Replace placeholder values with actual configuration.');
+    const results = contentChecks.run(skill);
+    const finding = results.find((r) => r.id === 'CONT-001');
+    expect(finding).toBeUndefined();
+  });
+
   it('does not trigger CONT-003/004/006/007 on high-quality aligned content', () => {
     const skill = makeSkill(
       '# Code formatter\n\nThis skill formats TypeScript files consistently.\n\n## Steps\n1. Parse TypeScript AST and collect formatting targets.\n2. Apply consistent indentation and spacing rules.\n3. Write the formatted file and summarize changes.\n\n## Notes\nUse the formatter on project files only and verify diff output.',
